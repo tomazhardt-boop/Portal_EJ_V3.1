@@ -1,0 +1,73 @@
+<div class="page-header">
+  <div>
+    <h1>Bem-vindo, Carlos 👋</h1>
+    <div class="subtitle">Visão geral da Integre Jr hoje.</div>
+  </div>
+  <div></div>
+</div>
+
+<div class="grid cols-4" style="margin-bottom:24px;">
+  <div class="stat-card">
+    <div class="label">Projetos ativos</div>
+    <div class="value" id="dash-projetos-val">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Membros</div>
+    <div class="value" id="dash-membros-val">—</div>
+    <div class="delta" id="dash-trainees-val"></div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Capacitações ativas</div>
+    <div class="value" id="dash-caps-val">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Reuniões na semana</div>
+    <div class="value" id="dash-reunioes-val">—</div>
+  </div>
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <div class="card-title">
+      Avisos recentes
+      <a class="btn btn-ghost" onclick="goTo('avisos')" style="font-size:12px;">Ver todos →</a>
+    </div>
+    <div id="dash-avisos"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      Próximos eventos
+      <a class="btn btn-ghost" onclick="goTo('calendario')" style="font-size:12px;">Ver todos →</a>
+    </div>
+    <div id="dash-eventos"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      Projetos em andamento
+      <a class="btn btn-ghost" onclick="goTo('projetos')" style="font-size:12px;">Ver todos →</a>
+    </div>
+    <table>
+      <thead><tr><th>Projeto</th><th>Setor</th><th>Status</th></tr></thead>
+      <tbody id="dash-proj-list"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      Top trainees
+      <a class="btn btn-ghost" onclick="goTo('trainees')" style="font-size:12px;">Ver ranking →</a>
+    </div>
+    <div id="dash-ranking"></div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:24px;">
+  <div class="card-title">
+    Membros da Integre Jr
+    <a class="btn btn-ghost" onclick="goTo('permissoes')" style="font-size:12px;">Gerenciar →</a>
+  </div>
+  <div style="font-size:12px;color:var(--gray-500);margin-bottom:12px;">Clique em um membro para ver o perfil completo.</div>
+  <div id="dash-membros-lista" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;"></div>
+</div>

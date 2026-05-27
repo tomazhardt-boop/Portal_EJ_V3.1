@@ -1,0 +1,30 @@
+<div class="page-header">
+  <div>
+    <h1>Trainees & Gamification</h1>
+    <div class="subtitle">Atividades pontuadas validadas pelos padrinhos.</div>
+  </div>
+  <button class="btn btn-primary" onclick="openNewActivity()">+ Nova atividade</button>
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <div class="card-title">Ranking de Trainees</div>
+    <div id="trainee-ranking"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Atividades disponíveis</div>
+    <table>
+      <thead><tr><th>Atividade</th><th>Pontos</th></tr></thead>
+      <tbody id="trainee-activities"></tbody>
+    </table>
+  </div>
+
+  <div class="card" style="grid-column: 1 / -1;">
+    <div class="card-title">Validações pendentes (como padrinho)</div>
+    <table>
+      <thead><tr><th>Trainee</th><th>Atividade</th><th>Enviado em</th><th></th></tr></thead>
+      <tbody id="trainee-validacoes"></tbody>
+    </table>
+  </div>
+</div>

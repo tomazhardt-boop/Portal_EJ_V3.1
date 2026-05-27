@@ -1,0 +1,18 @@
+<div class="page-header">
+  <div>
+    <h1>Avisos</h1>
+    <div class="subtitle">Comunicados internos da empresa.</div>
+  </div>
+  <button class="btn btn-primary" onclick="openNewAviso()">+ Novo aviso</button>
+</div>
+
+<div class="card">
+  <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+    <button class="btn btn-outline aviso-filter-btn" data-filter="todos" onclick="filterAvisos('todos')">Todos</button>
+    <button class="btn btn-ghost aviso-filter-btn" data-filter="geral" onclick="filterAvisos('geral')">Geral</button>
+    <button class="btn btn-ghost aviso-filter-btn" data-filter="setorial" onclick="filterAvisos('setorial')">Setorial</button>
+    <button class="btn btn-ghost aviso-filter-btn" data-filter="direcionado" onclick="filterAvisos('direcionado')">Direcionado</button>
+    <button class="btn btn-ghost aviso-filter-btn" data-filter="trainee" onclick="filterAvisos('trainee')">Trainee</button>
+  </div>
+  <div id="avisos-list"></div>
+</div>

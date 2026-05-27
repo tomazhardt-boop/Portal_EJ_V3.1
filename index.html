@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Integre Jr — Plataforma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">
+        <img src="logo.jpg" style="height:36px;object-fit:contain;" alt="Integre Jr" />
+      </div>
+      <div class="tag" style="color:#2563eb;font-weight:700;">Portal EJ</div>
+    </div>
+
+    <div class="nav-section-title">Principal</div>
+    <div class="nav-item active" data-page="dashboard">🏠 <span>Dashboard</span></div>
+    <div class="nav-item" data-page="perfil">👤 <span>Meu Perfil</span></div>
+    <div class="nav-item" data-page="avisos">📣 <span>Avisos</span></div>
+    <div class="nav-item" data-page="calendario">📅 <span>Calendário</span></div>
+
+    <div class="nav-section-title">Trabalho</div>
+    <div class="nav-item" data-page="projetos">📁 <span>Projetos</span></div>
+    <div class="nav-item" data-page="capacitacoes">🎓 <span>Capacitações</span></div>
+    <div class="nav-item" data-page="trainees">⭐ <span>Trainees & Ranking</span></div>
+
+    <div class="nav-section-title">Empresa</div>
+    <div class="nav-item" data-page="rnn">📘 <span>RNNs e Valores</span></div>
+    <div class="nav-item" data-page="legado">🗂️ <span>Legado de Cargos</span></div>
+    <div class="nav-item" data-page="drive">☁️ <span>Arquivos (Drive)</span></div>
+
+    <div class="nav-section-title">Administração</div>
+    <div class="nav-item" data-page="metas">🎯 <span>Metas</span></div>
+    <div class="nav-item" data-page="permissoes">🔐 <span>Permissões</span></div>
+    <div class="sidebar-toggle-btn" onclick="toggleSidebar()">◀</div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <header class="topbar">
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px;color:#2563eb;">
+        Portal EJ
+      </div>
+      <div class="user-chip">
+        <div class="info" style="text-align:right;">
+          <div class="name">Carlos Mendes</div>
+          <div class="role">Presidente</div>
+        </div>
+        <div class="avatar" id="topbar-avatar">CM</div>
+      </div>
+    </header>
+
+    <div class="content" id="content">
+      <!-- páginas carregadas dinamicamente via script.js -->
+    </div>
+  </main>
+</div>
+
+<!-- Modal Novo Aviso -->
+<div class="modal-overlay" id="modal-aviso">
+  <div class="modal">
+    <h3>Novo aviso</h3>
+    <div class="sub">Envie um comunicado interno.</div>
+    <div class="form-row">
+      <label>Título</label>
+      <input type="text" id="aviso-titulo" placeholder="Ex: Reunião antecipada" />
+    </div>
+    <div class="form-row">
+      <label>Alcance</label>
+      <select id="aviso-alcance" onchange="updateAvisoSubFields()">
+        <option value="geral">Geral (todos)</option>
+        <option value="setorial">Setorial</option>
+        <option value="direcionado">Direcionado</option>
+        <option value="trainee">Trainee</option>
+      </select>
+    </div>
+    <div class="form-row" id="aviso-setorial-opts" style="display:none;">
+      <label>Setores</label>
+      <div style="display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--gray-50);border-radius:8px;">
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" value="ADM/FIN" /> ADM/FIN</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" value="Comercial" /> Comercial</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" value="Projetos" /> Projetos</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" value="Coordenação" /> Coordenação</label>
+      </div>
+    </div>
+    <div class="form-row" id="aviso-direcionado-opts" style="display:none;">
+      <label>Membros</label>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;padding:8px;background:var(--gray-50);border-radius:8px;">
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Ana Souza</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Pedro Lima</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Júlia Ferreira</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Lucas Almeida</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Bruna Costa</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Rafael Oliveira</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Marina Santos</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Felipe Rocha</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Camila Dias</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Gustavo Pereira</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Larissa Mota</label>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Data de expiração (opcional)</label>
+      <input type="date" id="aviso-expiry" />
+    </div>
+    <div class="form-row">
+      <label>Mensagem</label>
+      <textarea rows="4" id="aviso-mensagem" placeholder="Texto do aviso..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-aviso')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitAviso()">Enviar aviso</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Novo Evento -->
+<div class="modal-overlay" id="modal-evento">
+  <div class="modal">
+    <h3>Novo evento</h3>
+    <div class="sub">Reuniões e eventos sincronizam com a Google Agenda dos participantes.</div>
+    <div class="form-row"><label>Título</label><input type="text" id="ev-titulo" placeholder="Ex: Reunião do conselho" /></div>
+    <div class="form-row"><label>Data</label><input type="date" id="ev-data" /></div>
+    <div class="form-row"><label>Horário</label><input type="time" id="ev-hora" /></div>
+    <div class="form-row"><label>Local</label><input type="text" id="ev-local" placeholder="Sede / Online / Endereço" /></div>
+    <div class="form-row">
+      <label>Categoria</label>
+      <select id="ev-categoria">
+        <option value="reuniao-interna">Reunião Interna</option>
+        <option value="reuniao-externa">Reunião Externa</option>
+        <option value="evento">Evento</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Visibilidade</label>
+      <select id="evento-visibilidade" onchange="updateEventoSubFields()">
+        <option value="geral">Geral (todos veem)</option>
+        <option value="trainee">Trainee</option>
+        <option value="diretoria">Diretoria</option>
+        <option value="setorial">Setorial</option>
+        <option value="restrito">Restrito</option>
+      </select>
+    </div>
+    <div class="form-row" id="evento-setorial-opts" style="display:none;">
+      <label>Setores</label>
+      <div style="display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--gray-50);border-radius:8px;">
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> ADM/FIN</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Comercial</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Projetos</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Coordenação</label>
+      </div>
+    </div>
+    <div class="form-row" id="evento-restrito-opts" style="display:none;">
+      <label>Membros</label>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;padding:8px;background:var(--gray-50);border-radius:8px;">
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Ana Souza</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Pedro Lima</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Júlia Ferreira</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Lucas Almeida</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Bruna Costa</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Rafael Oliveira</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Marina Santos</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Felipe Rocha</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Camila Dias</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Gustavo Pereira</label>
+        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Larissa Mota</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-evento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitEvent()">Criar evento</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Novo Projeto -->
+<div class="modal-overlay" id="modal-projeto">
+  <div class="modal">
+    <h3>Novo projeto</h3>
+    <div class="sub">Defina os dados iniciais. Membros podem ser adicionados depois.</div>
+    <div class="form-row"><label>Nome do projeto</label><input type="text" id="new-proj-nome" placeholder="Ex: Site Cliente X" /></div>
+    <div class="form-row">
+      <label>Setor responsável</label>
+      <select id="new-proj-setor"><option>Projetos</option><option>Comercial</option><option>ADM/FIN</option><option>Coordenação</option></select>
+    </div>
+    <div class="form-row">
+      <label>Líder</label>
+      <select id="proj-leader-select"></select>
+    </div>
+    <div class="form-row"><label>Descrição</label><textarea rows="3" id="new-proj-desc"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-projeto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitProject()">Criar projeto</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nova Tarefa -->
+<div class="modal-overlay" id="modal-tarefa">
+  <div class="modal">
+    <h3>Nova tarefa</h3>
+    <div class="sub">Adicione uma tarefa ao projeto em aberto.</div>
+    <div class="form-row"><label>Nome da tarefa</label><input type="text" id="task-nome" placeholder="Ex: Implementar página inicial" /></div>
+    <div class="form-row">
+      <label>Responsável</label>
+      <select id="task-resp"></select>
+    </div>
+    <div class="form-row"><label>Data de início</label><input type="date" id="task-inicio" /></div>
+    <div class="form-row"><label>Prazo (data de término)</label><input type="date" id="task-prazo" /></div>
+    <div class="form-row"><label>Descrição</label><textarea rows="3" id="task-desc" placeholder="Detalhes da tarefa..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-tarefa')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitTask()">Criar tarefa</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nova Atividade -->
+<div class="modal-overlay" id="modal-atividade">
+  <div class="modal">
+    <h3>Nova atividade</h3>
+    <div class="sub">Crie uma atividade pontuável para trainees.</div>
+    <div class="form-row"><label>Nome da atividade</label><input type="text" id="atv-nome" placeholder="Ex: Participar de reunião setorial" /></div>
+    <div class="form-row"><label>Pontos</label><input type="number" id="atv-pontos" placeholder="Ex: 50" min="1" /></div>
+    <div class="form-row"><label>Descrição</label><textarea rows="4" id="atv-desc" placeholder="Explique o que o trainee deve fazer..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-atividade')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitActivity()">Criar atividade</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nova Capacitação -->
+<div class="modal-overlay" id="modal-cap">
+  <div class="modal">
+    <h3>Nova capacitação</h3>
+    <div class="sub">Inclua a capacitação na jornada de evolução.</div>
+    <div class="form-row"><label>Título</label><input type="text" placeholder="Ex: Power BI básico" /></div>
+    <div class="form-row"><label>Pré-requisitos</label><select><option>Nenhum</option><option>Excel básico</option><option>Excel avançado</option></select></div>
+    <div class="form-row"><label>Habilita</label><input type="text" placeholder="Ex: Dashboards executivos" /></div>
+    <div class="form-row"><label>Descrição</label><textarea rows="3"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-cap')">Cancelar</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-cap'); showToast('Capacitação criada.')">Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Perfil -->
+<div class="modal-overlay" id="modal-perfil-edit">
+  <div class="modal">
+    <h3>Editar perfil</h3>
+    <div class="sub">Atualize suas informações pessoais.</div>
+    <div class="form-row"><label>Nome completo</label><input type="text" id="edit-name" /></div>
+    <div class="form-row"><label>E-mail</label><input type="text" id="edit-email" /></div>
+    <div class="form-row"><label>Data de entrada</label><input type="text" id="edit-date" placeholder="Ex: mar/2024" /></div>
+    <div class="form-row">
+      <label>Curso</label>
+      <select id="edit-course">
+        <option>Engenharia de Controle e Automação</option>
+        <option>Engenharia de Materiais</option>
+        <option>Engenharia Têxtil</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Capacitações concluídas</label>
+      <div id="edit-caps-list" style="margin-bottom:8px;min-height:28px;"></div>
+      <div style="display:flex;gap:8px;">
+        <select id="new-cap-select" style="flex:1;">
+          <option value="">— selecionar capacitação —</option>
+        </select>
+        <button class="btn btn-outline" onclick="addCap()">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-perfil-edit')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEditPerfil()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Gerenciar Membros -->
+<div class="modal-overlay" id="modal-membros">
+  <div class="modal">
+    <h3>Gerenciar membros</h3>
+    <div class="sub">Adicione ou remova membros do projeto.</div>
+    <div class="form-row">
+      <label>Membros atuais</label>
+      <div id="modal-membros-list"></div>
+    </div>
+    <div class="form-row">
+      <label>Adicionar membro</label>
+      <div style="display:flex;gap:8px;">
+        <select id="add-member-select" style="flex:1;"></select>
+        <button class="btn btn-outline" onclick="addMemberToProject()">+ Adicionar</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-membros')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Projeto -->
+<div class="modal-overlay" id="modal-editar-projeto">
+  <div class="modal">
+    <h3>Editar projeto</h3>
+    <div class="sub">Altere nome, descrição ou status do projeto.</div>
+    <div class="form-row"><label>Nome do projeto</label><input type="text" id="edit-proj-nome" /></div>
+    <div class="form-row"><label>Descrição</label><textarea rows="3" id="edit-proj-desc"></textarea></div>
+    <div class="form-row">
+      <label>Status</label>
+      <select id="edit-proj-status">
+        <option value="Em dia|green">Em dia</option>
+        <option value="Não iniciado|">Não iniciado</option>
+        <option value="Atrasado|red">Atrasado</option>
+        <option value="Atenção|amber">Atenção</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-editar-projeto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitEditProject()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Adicionar Registro (Legado) -->
+<div class="modal-overlay" id="modal-legado-registro">
+  <div class="modal">
+    <h3>Adicionar registro</h3>
+    <div class="sub">Compartilhe um aprendizado do seu cargo com as próximas gestões.</div>
+    <div class="form-row">
+      <label>Cargo</label>
+      <select id="legado-cargo">
+        <option value="presidencia">Presidência</option>
+        <option value="vpresidencia">Vice-presidência</option>
+        <option value="diretoriaProj">Diretoria de Projetos</option>
+        <option value="diretoriaAdm">Diretoria Adm-Financeira</option>
+        <option value="gerenciaMarketing">Gerência de Marketing</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Nome e período</label><input type="text" id="legado-autor" placeholder="Ex: João Silva (2025-2026)" /></div>
+    <div class="form-row"><label>Aprendizado</label><textarea rows="4" id="legado-texto" placeholder="Descreva o principal aprendizado do cargo..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-legado-registro')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitLegadoRegistro()">Salvar registro</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ver Todos Registros -->
+<div class="modal-overlay" id="modal-ver-registros">
+  <div class="modal" style="max-width:560px;">
+    <h3 id="ver-reg-titulo">Todos os registros</h3>
+    <div id="ver-reg-lista" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-top:12px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-ver-registros')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar RNN e Valores -->
+<div class="modal-overlay" id="modal-editar-rnn">
+  <div class="modal" style="max-width:560px;">
+    <h3>Editar RNNs e Valores</h3>
+    <div class="sub">Adicione novas normas ou valores à plataforma.</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button class="btn btn-outline" id="rnn-tab-rnn" onclick="switchRNNTab('rnn')">RNNs</button>
+      <button class="btn btn-ghost"   id="rnn-tab-val" onclick="switchRNNTab('val')">Valores</button>
+    </div>
+    <div id="rnn-edit-rnn">
+      <div class="form-row"><label>Título da norma</label><input type="text" id="rnn-new-titulo" placeholder="Ex: Pontualidade" /></div>
+      <div class="form-row"><label>Descrição</label><textarea rows="3" id="rnn-new-body" placeholder="Descreva a norma..."></textarea></div>
+      <button class="btn btn-outline" onclick="addRNN()" style="width:100%;margin-bottom:4px;">+ Adicionar RNN</button>
+    </div>
+    <div id="rnn-edit-val" style="display:none;">
+      <div class="form-row"><label>Nome do valor</label><input type="text" id="val-new-titulo" placeholder="Ex: Integridade" /></div>
+      <div class="form-row"><label>Descrição</label><textarea rows="3" id="val-new-body" placeholder="Descreva o valor..."></textarea></div>
+      <button class="btn btn-outline" onclick="addValor()" style="width:100%;margin-bottom:4px;">+ Adicionar Valor</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-editar-rnn')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Perfil de Membro -->
+<div class="modal-overlay" id="modal-membro-perfil">
+  <div class="modal" style="max-width:520px;">
+    <div id="membro-perfil-content"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-membro-perfil')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Meta -->
+<div class="modal-overlay" id="modal-metas-edit">
+  <div class="modal" style="max-width:400px;">
+    <h3>Editar meta</h3>
+    <div class="sub" id="meta-edit-label"></div>
+    <div class="form-row"><label>Valor atual</label><input type="number" id="meta-edit-atual" step="any" /></div>
+    <div class="form-row"><label>Meta</label><input type="number" id="meta-edit-meta" step="any" min="1" /></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-metas-edit')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitEditMeta()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Todas as Atividades (Trainees) -->
+<div class="modal-overlay" id="modal-atividades-todas">
+  <div class="modal" style="max-width:560px;">
+    <h3>Todas as atividades</h3>
+    <div class="sub">Clique em uma atividade para ver a descrição.</div>
+    <div id="atividades-todas-grid" style="display:flex;flex-direction:column;gap:8px;margin-top:14px;max-height:420px;overflow-y:auto;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-atividades-todas')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Adicionar Capacitação à Árvore -->
+<div class="modal-overlay" id="modal-add-cap">
+  <div class="modal" style="max-width:420px;">
+    <h3>Adicionar capacitação</h3>
+    <div class="sub" id="new-cap-col-label" style="font-weight:600;color:var(--blue-700);"></div>
+    <div class="form-row" style="margin-top:12px;"><label>Nome da capacitação</label><input type="text" id="new-cap-name" placeholder="Ex: Power BI básico" /></div>
+    <div class="form-row"><label>Link de acesso (opcional)</label><input type="text" id="new-cap-link" placeholder="https://..." /></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-cap')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitCap()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Gráfico Anual -->
+<div class="modal-overlay" id="modal-anual-chart">
+  <div class="modal" style="max-width:580px;">
+    <h3>Gráfico anual de faturamento</h3>
+    <div class="sub">Defina a meta anual e os valores reais de cada mês.</div>
+    <div class="form-row" style="margin-top:12px;"><label>Meta anual (R$)</label><input type="number" id="anual-meta-total" min="0" step="1000" placeholder="Ex: 180000" /></div>
+    <div class="form-row">
+      <label>Valores reais por mês (R$)</label>
+      <div id="anual-mensal-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-anual-chart')">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitAnual()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>

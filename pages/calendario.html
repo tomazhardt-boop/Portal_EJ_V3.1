@@ -1,0 +1,25 @@
+<div class="page-header">
+  <div>
+    <h1>Calendário</h1>
+    <div class="subtitle">Reuniões e eventos da empresa. Todos podem visualizar.</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <div style="background:var(--gray-100);border-radius:8px;padding:8px 14px;display:flex;gap:8px;align-items:center;color:var(--gray-500);">
+      <span>🔍</span>
+      <input type="text" id="cal-search" placeholder="Buscar por data, nome ou visibilidade..."
+        style="border:none;outline:none;background:transparent;font-family:inherit;font-size:14px;width:260px;color:var(--gray-800);" />
+    </div>
+    <button class="btn btn-primary" onclick="openNewEvent()">+ Novo evento</button>
+  </div>
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <div class="card-title">Maio 2026</div>
+    <div id="cal-maio"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Junho 2026</div>
+    <div id="cal-junho"></div>
+  </div>
+</div>
