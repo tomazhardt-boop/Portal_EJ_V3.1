@@ -11,14 +11,99 @@
 </head>
 <body>
 
-<div class="app">
+<!-- ============================================================= -->
+<!-- TELA DE LOGIN (Atualização Login)                              -->
+<!-- Fica ACIMA de tudo e é a primeira coisa exibida. O app só      -->
+<!-- aparece após autenticar. Tem 3 "views" alternadas via JS:      -->
+<!--   login  → e-mail + senha                                       -->
+<!--   setpw  → criar senha no 1º acesso (após logar com a padrão)   -->
+<!--   reset  → "mudar/esqueci senha" via código enviado ao e-mail   -->
+<!-- ============================================================= -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <div class="login-brand">
+      <img src="logo.jpg" alt="Integre Jr" class="login-logo" />
+      <div class="login-title">Portal EJ</div>
+      <div class="login-sub">Integre Jr</div>
+    </div>
+
+    <!-- VIEW: login -->
+    <div id="auth-view-login">
+      <div class="auth-field">
+        <label>E-mail</label>
+        <input type="email" id="login-email" placeholder="voce@integrejr.com.br" autocomplete="username" />
+      </div>
+      <div class="auth-field">
+        <label>Senha</label>
+        <input type="password" id="login-password" placeholder="Sua senha" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter')doLogin()" />
+      </div>
+      <div id="login-error" class="auth-error"></div>
+      <button class="btn btn-primary auth-btn" onclick="doLogin()">Entrar</button>
+      <div class="auth-links">
+        <button class="auth-link" onclick="showAuthView('reset')">Esqueci / mudar senha</button>
+      </div>
+      <div class="auth-hint">1º acesso: senha padrão <b>Integre123</b> — será solicitada a troca.</div>
+    </div>
+
+    <!-- VIEW: setpw (criar senha no primeiro acesso) -->
+    <div id="auth-view-setpw" style="display:none;">
+      <div class="auth-head">Crie sua senha</div>
+      <div class="auth-desc">Primeiro acesso detectado. Defina uma senha pessoal para continuar.</div>
+      <div class="auth-field"><label>Nova senha</label>
+        <input type="password" id="setpw-new" placeholder="Mínimo 6 caracteres" /></div>
+      <div class="auth-field"><label>Confirmar senha</label>
+        <input type="password" id="setpw-confirm" placeholder="Repita a senha"
+               onkeydown="if(event.key==='Enter')submitFirstPassword()" /></div>
+      <div id="setpw-error" class="auth-error"></div>
+      <button class="btn btn-primary auth-btn" onclick="submitFirstPassword()">Salvar e entrar</button>
+      <div class="auth-links"><button class="auth-link" onclick="showAuthView('login')">Voltar</button></div>
+    </div>
+
+    <!-- VIEW: reset (mudar/esqueci senha, em 2 passos) -->
+    <div id="auth-view-reset" style="display:none;">
+      <div class="auth-head">Mudar senha</div>
+
+      <!-- passo 1: pedir o código -->
+      <div id="reset-step1">
+        <div class="auth-desc">Enviaremos um código de verificação ao seu e-mail cadastrado.</div>
+        <div class="auth-field"><label>E-mail</label>
+          <input type="email" id="reset-email" placeholder="voce@integrejr.com.br" /></div>
+        <div id="reset-error1" class="auth-error"></div>
+        <button class="btn btn-primary auth-btn" onclick="authSendCode()">Enviar código</button>
+      </div>
+
+      <!-- passo 2: validar código + nova senha -->
+      <div id="reset-step2" style="display:none;">
+        <div id="reset-code-box" class="auth-codebox"></div>
+        <div class="auth-field"><label>Código recebido</label>
+          <input type="text" id="reset-code" maxlength="6" inputmode="numeric" placeholder="6 dígitos" /></div>
+        <div class="auth-field"><label>Nova senha</label>
+          <input type="password" id="reset-new" placeholder="Mínimo 6 caracteres" /></div>
+        <div class="auth-field"><label>Confirmar senha</label>
+          <input type="password" id="reset-confirm" placeholder="Repita a senha" /></div>
+        <div id="reset-error2" class="auth-error"></div>
+        <button class="btn btn-primary auth-btn" onclick="authConfirmReset()">Redefinir senha</button>
+      </div>
+
+      <div class="auth-links"><button class="auth-link" onclick="showAuthView('login')">Voltar ao login</button></div>
+    </div>
+  </div>
+  <div class="login-foot">🧪 Protótipo — autenticação local (e-mail/banco reais entram na migração)</div>
+</div>
+
+<div class="app" id="app-root" style="display:none;">
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="brand">
-      <div class="logo">
-        <img src="logo.jpg" style="height:36px;object-fit:contain;" alt="Integre Jr" />
+      <div class="brand-row">
+        <div class="logo">
+          <img src="logo.jpg" id="sidebar-logo" class="logo-img" alt="Integre Jr" title="Clique para alterar a logo da empresa" onclick="openLogoUpload()" />
+          <span class="brand-name">Integre Jr</span>
+        </div>
+        <div class="sidebar-toggle-btn" onclick="toggleSidebar()">◀</div>
       </div>
-      <div class="tag" style="color:#2563eb;font-weight:700;">Portal EJ</div>
+      <div class="tag">Portal EJ</div>
     </div>
 
     <div class="nav-section-title">Principal</div>
@@ -26,21 +111,23 @@
     <div class="nav-item" data-page="perfil">👤 <span>Meu Perfil</span></div>
     <div class="nav-item" data-page="avisos">📣 <span>Avisos</span></div>
     <div class="nav-item" data-page="calendario">📅 <span>Calendário</span></div>
+    <div class="nav-item" data-page="ponto">⏱️ <span>Ponto</span></div>
 
     <div class="nav-section-title">Trabalho</div>
     <div class="nav-item" data-page="projetos">📁 <span>Projetos</span></div>
     <div class="nav-item" data-page="capacitacoes">🎓 <span>Capacitações</span></div>
-    <div class="nav-item" data-page="trainees">⭐ <span>Trainees & Ranking</span></div>
+    <div class="nav-item" data-page="trainees">⭐ <span>Trainee</span></div>
 
     <div class="nav-section-title">Empresa</div>
     <div class="nav-item" data-page="rnn">📘 <span>RNNs e Valores</span></div>
-    <div class="nav-item" data-page="legado">🗂️ <span>Legado de Cargos</span></div>
-    <div class="nav-item" data-page="drive">☁️ <span>Arquivos (Drive)</span></div>
+    <div class="nav-item" data-page="legado">🗂️ <span>Legado</span></div>
+    <div class="nav-item" data-page="drive">☁️ <span>Arquivos</span></div>
 
     <div class="nav-section-title">Administração</div>
+    <div class="nav-item" data-page="membros">👥 <span>Membros</span></div>
+    <div class="nav-item" data-page="contratos">📄 <span>Contratos</span></div>
     <div class="nav-item" data-page="metas">🎯 <span>Metas</span></div>
-    <div class="nav-item" data-page="permissoes">🔐 <span>Permissões</span></div>
-    <div class="sidebar-toggle-btn" onclick="toggleSidebar()">◀</div>
+    <div class="nav-item" data-page="configuracoes">⚙️ <span>Configurações</span></div>
   </aside>
 
   <!-- MAIN -->
@@ -49,12 +136,32 @@
       <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px;color:#2563eb;">
         Portal EJ
       </div>
+
+      <!-- Atualização 9: barra Modo Protótipo (data simulada + usuário ativo). Só na versão protótipo. -->
+      <div id="proto-bar" style="display:flex;align-items:center;gap:12px;font-size:12px;color:var(--gray-600);flex-wrap:wrap;">
+        <span title="Ferramentas só na versão protótipo" style="background:#fef3c7;color:#92400e;padding:2px 9px;border-radius:999px;font-weight:700;font-size:11px;">🧪 Protótipo</span>
+        <span style="display:flex;align-items:center;gap:5px;">
+          <span>Data:</span>
+          <input type="text" id="proto-date" placeholder="dd/mm/aaaa" maxlength="10"
+                 style="width:96px;padding:3px 6px;font-size:12px;border:1px solid var(--gray-300);border-radius:6px;" />
+          <button class="btn btn-outline" style="font-size:11px;padding:3px 9px;" onclick="protoApplyDate()">Aplicar</button>
+          <button class="btn btn-ghost"   style="font-size:11px;padding:3px 7px;" onclick="protoClearDate()" title="Voltar à data real">↺</button>
+        </span>
+        <span style="display:flex;align-items:center;gap:5px;">
+          <span>Logado:</span>
+          <select id="proto-user" onchange="protoSwitchUser(this.value)"
+                  style="padding:3px 6px;font-size:12px;border:1px solid var(--gray-300);border-radius:6px;max-width:200px;"></select>
+        </span>
+      </div>
+
       <div class="user-chip">
         <div class="info" style="text-align:right;">
           <div class="name">Carlos Mendes</div>
           <div class="role">Presidente</div>
         </div>
         <div class="avatar" id="topbar-avatar">CM</div>
+        <!-- Atualização Login: encerra a sessão e volta à tela de login -->
+        <button class="btn btn-ghost" title="Sair" onclick="logout()" style="font-size:12px;padding:6px 10px;">Sair</button>
       </div>
     </header>
 
@@ -206,19 +313,19 @@
 <!-- Modal Nova Tarefa -->
 <div class="modal-overlay" id="modal-tarefa">
   <div class="modal">
-    <h3>Nova tarefa</h3>
+    <h3 id="modal-tarefa-title">Nova tarefa</h3>
     <div class="sub">Adicione uma tarefa ao projeto em aberto.</div>
     <div class="form-row"><label>Nome da tarefa</label><input type="text" id="task-nome" placeholder="Ex: Implementar página inicial" /></div>
     <div class="form-row">
       <label>Responsável</label>
       <select id="task-resp"></select>
     </div>
-    <div class="form-row"><label>Data de início</label><input type="date" id="task-inicio" /></div>
-    <div class="form-row"><label>Prazo (data de término)</label><input type="date" id="task-prazo" /></div>
+    <div class="form-row"><label>Data de início</label><input type="text" id="task-inicio" placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" /></div>
+    <div class="form-row"><label>Prazo (data de término)</label><input type="text" id="task-prazo" placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" /></div>
     <div class="form-row"><label>Descrição</label><textarea rows="3" id="task-desc" placeholder="Detalhes da tarefa..."></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-tarefa')">Cancelar</button>
-      <button class="btn btn-primary" onclick="submitTask()">Criar tarefa</button>
+      <button class="btn btn-primary" id="modal-tarefa-submit" onclick="submitTask()">Criar tarefa</button>
     </div>
   </div>
 </div>
@@ -230,6 +337,15 @@
     <div class="sub">Crie uma atividade pontuável para trainees.</div>
     <div class="form-row"><label>Nome da atividade</label><input type="text" id="atv-nome" placeholder="Ex: Participar de reunião setorial" /></div>
     <div class="form-row"><label>Pontos</label><input type="number" id="atv-pontos" placeholder="Ex: 50" min="1" /></div>
+    <div class="form-row">
+      <label>Área</label>
+      <select id="atv-area" required>
+        <option value="Projetos">Projetos</option>
+        <option value="Comercial">Comercial</option>
+        <option value="ADM/FIN">ADM/FIN</option>
+        <option value="Diretoria">Diretoria</option>
+      </select>
+    </div>
     <div class="form-row"><label>Descrição</label><textarea rows="4" id="atv-desc" placeholder="Explique o que o trainee deve fazer..."></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-atividade')">Cancelar</button>
@@ -356,17 +472,6 @@
   </div>
 </div>
 
-<!-- Modal Ver Todos Registros -->
-<div class="modal-overlay" id="modal-ver-registros">
-  <div class="modal" style="max-width:560px;">
-    <h3 id="ver-reg-titulo">Todos os registros</h3>
-    <div id="ver-reg-lista" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-top:12px;"></div>
-    <div class="modal-footer">
-      <button class="btn btn-primary" onclick="closeModal('modal-ver-registros')">Fechar</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal Editar RNN e Valores -->
 <div class="modal-overlay" id="modal-editar-rnn">
   <div class="modal" style="max-width:560px;">
@@ -408,22 +513,13 @@
     <h3>Editar meta</h3>
     <div class="sub" id="meta-edit-label"></div>
     <div class="form-row"><label>Valor atual</label><input type="number" id="meta-edit-atual" step="any" /></div>
-    <div class="form-row"><label>Meta</label><input type="number" id="meta-edit-meta" step="any" min="1" /></div>
+    <div class="form-row" id="meta-edit-meta-row"><label>Meta</label><input type="number" id="meta-edit-meta" step="any" min="1" /></div>
+    <div id="meta-edit-meta-nota" style="display:none;font-size:12px;color:var(--gray-500);background:var(--gray-100);padding:8px 10px;border-radius:6px;margin-bottom:4px;">
+      A meta mensal é a meta anual ÷ 12. Para alterá-la, edite a <b>Meta total do ano</b> no gráfico de faturamento.
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-metas-edit')">Cancelar</button>
       <button class="btn btn-primary" onclick="submitEditMeta()">Salvar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Todas as Atividades (Trainees) -->
-<div class="modal-overlay" id="modal-atividades-todas">
-  <div class="modal" style="max-width:560px;">
-    <h3>Todas as atividades</h3>
-    <div class="sub">Clique em uma atividade para ver a descrição.</div>
-    <div id="atividades-todas-grid" style="display:flex;flex-direction:column;gap:8px;margin-top:14px;max-height:420px;overflow-y:auto;"></div>
-    <div class="modal-footer">
-      <button class="btn btn-primary" onclick="closeModal('modal-atividades-todas')">Fechar</button>
     </div>
   </div>
 </div>
@@ -438,6 +534,50 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add-cap')">Cancelar</button>
       <button class="btn btn-primary" onclick="submitCap()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Atualização 9: Modal Desligar Membro -->
+<div class="modal-overlay" id="modal-desligar">
+  <div class="modal" style="max-width:460px;">
+    <h3>Desligar membro</h3>
+    <div class="sub">Membro: <b id="desl-membro-nome">—</b></div>
+    <div style="font-size:13px;color:var(--gray-600);margin:12px 0;">
+      Escolha o tipo de desligamento. Ambos geram um termo (placeholder — template oficial entra depois) e <b>excluem o perfil</b> da plataforma.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+      <button class="btn btn-outline" style="text-align:left;padding:12px;border-color:#dc2626;color:#dc2626;" onclick="executarDesligamento('ma_conduta')">
+        ⚠️ Desligamento por má conduta
+        <div style="font-size:11px;color:var(--gray-500);font-weight:400;margin-top:2px;">Procedimento específico para infrações graves.</div>
+      </button>
+      <button class="btn btn-outline" style="text-align:left;padding:12px;" onclick="executarDesligamento('normal')">
+        🚪 Desligamento (saída normal)
+        <div style="font-size:11px;color:var(--gray-500);font-weight:400;margin-top:2px;">Saída voluntária, fim de mandato, conclusão do curso, etc.</div>
+      </button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-desligar'); desligamentoCtx=null;">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Atualização 9: Modal Editar Tópicos de Capacitação -->
+<div class="modal-overlay" id="modal-cap-topicos">
+  <div class="modal" style="max-width:520px;">
+    <h3>Editar tópicos</h3>
+    <div class="sub">Adicione ou remova tópicos. Remover apaga todas as capacitações dentro.</div>
+    <div id="cap-topicos-list" style="display:flex;flex-direction:column;gap:8px;margin:14px 0;"></div>
+    <div style="border-top:1px solid var(--gray-200);padding-top:12px;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Adicionar novo tópico</div>
+      <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;margin-bottom:10px;">
+        <div class="form-row" style="margin-bottom:0;"><label>Emoji</label><input type="text" id="cap-novo-emoji" maxlength="3" placeholder="🎨" /></div>
+        <div class="form-row" style="margin-bottom:0;"><label>Nome do tópico</label><input type="text" id="cap-novo-nome" placeholder="Ex: Design" /></div>
+      </div>
+      <button class="btn btn-primary" onclick="addTopicoCap()">+ Adicionar tópico</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-cap-topicos')">Fechar</button>
     </div>
   </div>
 </div>
@@ -459,9 +599,46 @@
   </div>
 </div>
 
+<!-- Modal Prompt Genérico (Atualização 5) -->
+<div class="modal-overlay" id="modal-prompt">
+  <div class="modal" style="max-width:420px;">
+    <h3 id="prompt-titulo">Editar</h3>
+    <div class="sub" id="prompt-sub"></div>
+    <div class="form-row">
+      <label id="prompt-label">Valor</label>
+      <input type="text" id="prompt-input" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-prompt')">Cancelar</button>
+      <button class="btn btn-primary" id="prompt-confirm-btn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detalhe de Tarefa (Atualização 5 + 6.1: botão excluir) -->
+<div class="modal-overlay" id="modal-task-detail">
+  <div class="modal" style="max-width:480px;">
+    <h3 id="task-detail-nome">Detalhes da tarefa</h3>
+    <div class="sub" id="task-detail-resp"></div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;font-size:14px;">
+      <div><b>Período:</b> <span id="task-detail-periodo"></span></div>
+      <div><b>Status:</b> <span id="task-detail-status"></span></div>
+      <div><b>Descrição:</b><br><span id="task-detail-desc" style="color:var(--gray-700);"></span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="task-detail-edit-btn" onclick="openEditTaskFromDetail()" style="display:none;">✏️ Modificar dados</button>
+      <button class="btn btn-danger" id="task-detail-delete-btn" onclick="deleteTaskFromDetail()" style="display:none;">🗑️ Excluir tarefa</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-task-detail')">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Supabase (Fase 1: login real). A lib e a config vêm ANTES do script.js. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

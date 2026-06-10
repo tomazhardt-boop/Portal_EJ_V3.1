@@ -1,0 +1,63 @@
+<div class="page-header">
+  <div>
+    <h1>Contratos</h1>
+    <div class="subtitle">Automação de contratos: preencha os dados e gere o documento.</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:18px;">
+  <div class="card-title">📝 Dados do contrato</div>
+
+  <div class="form-row" style="margin-bottom:14px;max-width:280px;">
+    <label>Modelo de contrato</label>
+    <select id="ct-modelo">
+      <option value="servico">Prestação de Serviços</option>
+      <option value="patrocinio">Patrocínio</option>
+    </select>
+  </div>
+
+  <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin:6px 0 10px;">Contratante (cliente)</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+    <div class="form-row" style="margin-bottom:0;"><label>Nome / Razão social *</label><input type="text" id="ct-cliente-nome" placeholder="Ex: Café Norte Ltda." /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>CPF / CNPJ</label><input type="text" id="ct-cliente-doc" placeholder="00.000.000/0001-00" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Endereço</label><input type="text" id="ct-cliente-end" placeholder="Rua, nº, bairro, cidade" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Representante legal</label><input type="text" id="ct-cliente-rep" placeholder="Nome do responsável" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Contato / e-mail</label><input type="text" id="ct-cliente-contato" placeholder="email@cliente.com" /></div>
+  </div>
+
+  <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin:6px 0 10px;">Serviço</div>
+  <div class="form-row"><label>Objeto do contrato *</label><textarea id="ct-objeto" rows="3" placeholder="Descreva o serviço a ser prestado (ex: desenvolvimento de site institucional...)"></textarea></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+    <div class="form-row" style="margin-bottom:0;"><label>Valor total (R$) *</label><input type="number" id="ct-valor" min="0" step="0.01" placeholder="0,00" /></div>
+    <div class="form-row" style="margin-bottom:0;">
+      <label>Forma de pagamento</label>
+      <select id="ct-pagamento">
+        <option>À vista</option>
+        <option>50% entrada + 50% entrega</option>
+        <option>Parcelado</option>
+        <option>Por etapas</option>
+      </select>
+    </div>
+    <div class="form-row" style="margin-bottom:0;"><label>Início</label><input type="text" id="ct-inicio" placeholder="dd/mm/aaaa" maxlength="10" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Entrega prevista</label><input type="text" id="ct-entrega" placeholder="dd/mm/aaaa" maxlength="10" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Cidade (foro)</label><input type="text" id="ct-cidade" placeholder="Blumenau/SC" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Data do contrato</label><input type="text" id="ct-data" placeholder="dd/mm/aaaa" maxlength="10" /></div>
+  </div>
+
+  <button class="btn btn-primary" onclick="gerarContrato()">📄 Gerar contrato</button>
+  <span style="font-size:12px;color:var(--gray-400);margin-left:10px;">* campos obrigatórios</span>
+</div>
+
+<div class="card" id="ct-preview-card" style="display:none;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <div class="card-title" style="margin-bottom:0;">Contrato gerado</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-outline" style="font-size:12px;" onclick="copiarContrato()">📋 Copiar</button>
+      <button class="btn btn-outline" style="font-size:12px;" onclick="imprimirContrato()">🖨️ Imprimir / PDF</button>
+    </div>
+  </div>
+  <div style="font-size:12px;color:var(--gray-500);background:var(--gray-100);padding:8px 10px;border-radius:6px;margin-bottom:12px;">
+    Modelos provisórios — os templates oficiais entram depois (trocar <code>montarContratoServico()</code> e <code>montarContratoPatrocinio()</code> no script.js).
+  </div>
+  <pre id="ct-preview" style="white-space:pre-wrap;font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:13px;line-height:1.6;color:var(--gray-800);background:white;border:1px solid var(--gray-200);border-radius:8px;padding:18px;margin:0;"></pre>
+</div>

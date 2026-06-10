@@ -1,15 +1,8 @@
 <div class="page-header">
   <div>
-    <h1>Arquivos (Drive)</h1>
-    <div class="subtitle">Atalhos para as pastas no Google Drive, conforme suas permissões.</div>
+    <h1>Arquivos</h1>
   </div>
+  <button class="btn btn-primary" id="drive-add-btn" onclick="addDriveTopic()" style="display:none;">+ Novo tópico</button>
 </div>
 
-<div class="grid cols-3">
-  <div class="card" style="cursor:pointer;" onclick="showToast('Abrindo Drive: Planilhas Financeiras')">📊 <b>Planilhas Financeiras</b><div style="font-size:12px; color:var(--gray-500); margin-top:4px;">Restrito a diretoria</div></div>
-  <div class="card" style="cursor:pointer;" onclick="showToast('Abrindo Drive: Materiais de Capacitações')">🎓 <b>Materiais de Capacitações</b><div style="font-size:12px; color:var(--gray-500); margin-top:4px;">Todos os membros</div></div>
-  <div class="card" style="cursor:pointer;" onclick="showToast('Abrindo Drive: Projetos Antigos')">📁 <b>Projetos Antigos</b><div style="font-size:12px; color:var(--gray-500); margin-top:4px;">Todos os membros</div></div>
-  <div class="card" style="cursor:pointer;" onclick="showToast('Abrindo Drive: Templates Internos')">📝 <b>Templates Internos</b><div style="font-size:12px; color:var(--gray-500); margin-top:4px;">Todos os membros</div></div>
-  <div class="card" style="cursor:pointer;" onclick="showToast('Abrindo Drive: Identidade Visual')">🎨 <b>Identidade Visual</b><div style="font-size:12px; color:var(--gray-500); margin-top:4px;">Todos os membros</div></div>
-  <div class="card" style="cursor:pointer;" onclick="showToast('Abrindo Drive: Documentos Jurídicos')">⚖️ <b>Documentos Jurídicos</b><div style="font-size:12px; color:var(--gray-500); margin-top:4px;">Apenas Presidência e Adm-Fin</div></div>
-</div>
+<div class="grid cols-3" id="drive-grid"></div>

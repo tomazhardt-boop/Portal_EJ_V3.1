@@ -1,0 +1,16 @@
+# ===== Segredos — NUNCA versionar =====
+# Chave service_role do Supabase (bypassa toda a segurança do banco)
+supabase/.service-role-key
+.env
+.env.*
+
+# ===== Ferramentas / config local =====
+# Config local do Claude Code (permissões da máquina; não pertence ao repo)
+.claude/
+node_modules/
+
+# ===== Lixo de SO =====
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log

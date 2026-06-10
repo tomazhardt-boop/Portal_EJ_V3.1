@@ -1,9 +1,12 @@
 <div class="page-header">
   <div>
-    <h1>Trainees & Gamification</h1>
+    <h1>Trainee</h1>
     <div class="subtitle">Atividades pontuadas validadas pelos padrinhos.</div>
   </div>
-  <button class="btn btn-primary" onclick="openNewActivity()">+ Nova atividade</button>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-outline" id="toggle-points-btn" onclick="toggleTraineePoints()">🙈 Ocultar pontos</button>
+    <button class="btn btn-primary" onclick="openNewActivity()">+ Nova atividade</button>
+  </div>
 </div>
 
 <div class="grid cols-2">

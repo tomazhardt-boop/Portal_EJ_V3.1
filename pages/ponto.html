@@ -1,0 +1,54 @@
+<div class="page-header">
+  <div>
+    <h1>Ponto</h1>
+    <div class="subtitle">Cronômetro de trabalho, registro semanal de horas e engajamento.</div>
+  </div>
+</div>
+
+<div class="grid cols-2">
+  <!-- CRONÔMETRO -->
+  <div class="card">
+    <div class="card-title">⏱️ Cronômetro de ponto</div>
+    <div style="font-size:13px;color:var(--gray-500);margin-bottom:16px;">
+      Clique em <b>Iniciar</b> para começar a contar. Clique em <b>Parar</b> para encerrar.
+    
+    </div>
+    <div id="ponto-display" style="font-size:46px;font-weight:800;letter-spacing:2px;text-align:center;color:var(--gray-900);font-variant-numeric:tabular-nums;margin:8px 0 6px;">00:00:00</div>
+    <div style="text-align:center;font-size:13px;color:var(--gray-500);margin-bottom:18px;">
+      Acumulado nesta semana: <b id="ponto-acumulado" style="color:var(--gray-800);font-variant-numeric:tabular-nums;">00:00:00</b>
+    </div>
+    <div style="display:flex;justify-content:center;">
+      <button class="btn btn-primary" id="ponto-toggle" style="min-width:160px;" onclick="pontoToggle()">▶ Iniciar</button>
+    </div>
+  </div>
+
+  <!-- HORAS DA SEMANA -->
+  <div class="card">
+    <div class="card-title">🗓️ Horas da semana</div>
+    <div style="font-size:13px;color:var(--gray-500);margin-bottom:6px;" id="ponto-semana-label">Semana atual</div>
+    <div id="ponto-semana-status" style="font-size:12px;color:var(--gray-500);margin-bottom:8px;"></div>
+    <div id="ponto-semana-bloqueio" style="display:none;font-size:12px;background:var(--gray-100);color:var(--gray-700);padding:8px 10px;border-radius:6px;margin-bottom:12px;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div class="form-row" style="margin-bottom:0;">
+        <label>Horas trabalhadas</label>
+        <input type="number" id="ponto-worked" min="0" step="0.5" placeholder="0" />
+      </div>
+      <div class="form-row" style="margin-bottom:0;">
+        <label>Horas não trabalhadas (reuniões)</label>
+        <input type="number" id="ponto-meetings" min="0" step="0.5" placeholder="0" />
+      </div>
+    </div>
+    <button class="btn btn-primary" id="ponto-semana-btn" onclick="pontoSubmitSemana()">Registrar horas</button>
+  </div>
+
+  <!-- ENGAJAMENTO -->
+  <div class="card" style="grid-column:1/-1;">
+    <div class="card-title">📊 Engajamento da semana</div>
+    <div style="font-size:13px;color:var(--gray-500);margin-bottom:14px;">
+      De 1 a 10, qual foi seu engajamento com a Integre Jr nesta semana? (1× por semana)
+    </div>
+    <div id="ponto-engaj-bloqueio" style="display:none;font-size:12px;background:var(--gray-100);color:var(--gray-700);padding:8px 10px;border-radius:6px;margin-bottom:12px;"></div>
+    <div id="ponto-engaj-scale" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+    <div id="ponto-engaj-status" style="font-size:13px;color:var(--gray-500);"></div>
+  </div>
+</div>

@@ -1,0 +1,72 @@
+<div class="page-header">
+  <div>
+    <h1>Membros</h1>
+    <div class="subtitle">Gestão da equipe: lista, adição, desativação e desligamento.</div>
+  </div>
+</div>
+
+<!-- LISTA DE MEMBROS -->
+<div class="card" style="margin-bottom:18px;">
+  <div class="card-title">👥 Lista de membros</div>
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+    <input type="text" id="memb-search" placeholder="Buscar por nome ou cargo..." style="flex:1;max-width:260px;" />
+    <select id="memb-role">
+      <option>Todos os cargos</option>
+      <option>Presidente</option>
+      <option>Diretor</option>
+      <option>Gerente</option>
+      <option>Membro</option>
+      <option>Trainee</option>
+    </select>
+    <select id="memb-status">
+      <option>Todos os status</option>
+      <option>Ativo</option>
+      <option>Inativo</option>
+    </select>
+  </div>
+  <table>
+    <thead>
+      <tr><th>Membro</th><th>Cargo</th><th>Setor / Padrinho</th><th>Entrada</th><th>Status</th><th style="text-align:right;">Ações</th></tr>
+    </thead>
+    <tbody id="memb-table"></tbody>
+  </table>
+</div>
+
+<!-- ADICIONAR MEMBRO -->
+<div class="card">
+  <div class="card-title">➕ Adicionar membro</div>
+  <div style="font-size:13px;color:var(--gray-500);margin-bottom:14px;">
+    Cadastre um membro pelo e-mail. O padrinho do trainee é definido depois, na lista acima.
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+    <div class="form-row" style="margin-bottom:0;">
+      <label>Nome completo</label>
+      <input type="text" id="cfg-novo-nome" placeholder="Ex: João Silva" />
+    </div>
+    <div class="form-row" style="margin-bottom:0;">
+      <label>E-mail (@integrejr.com.br)</label>
+      <input type="text" id="cfg-novo-email" placeholder="joao.silva@integrejr.com.br" />
+    </div>
+    <div class="form-row" style="margin-bottom:0;">
+      <label>Cargo</label>
+      <select id="cfg-novo-cargo" onchange="updateNovoMembroSetor()">
+        <option>Trainee</option>
+        <option>Membro</option>
+        <option>Gerente</option>
+        <option>Diretor</option>
+        <option>Presidente</option>
+      </select>
+    </div>
+    <!-- Cargos efetivos têm SETOR. Trainee não tem setor (o slot fica oculto). -->
+    <div class="form-row" style="margin-bottom:0;" id="cfg-novo-setor-wrap">
+      <label>Setor</label>
+      <select id="cfg-novo-setor">
+        <option>Projetos</option>
+        <option>Comercial</option>
+        <option>ADM/FIN</option>
+        <option>Coordenação</option>
+      </select>
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="submitAddMembro()">+ Adicionar membro</button>
+</div>
