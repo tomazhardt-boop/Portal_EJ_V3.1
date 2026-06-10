@@ -696,6 +696,9 @@ select:focus, input:focus, textarea:focus {
   height: 100%;
 }
 .proj-card .proj-card-bottom { margin-top: auto; }
+/* Projeto concluído: card esmaecido na lista (filtro "Concluídos"/"Todos") */
+.proj-card.concluded { opacity: .6; background: var(--gray-50); }
+.proj-card.concluded:hover { opacity: 1; }
 
 /* M1: Informações e Membros vinculados — botão alinhado no fundo */
 .card.flex-card {

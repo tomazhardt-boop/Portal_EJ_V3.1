@@ -111,6 +111,7 @@ let avisos = [
 ];
 let avisoIdCounter = 5;
 let activeAvisoFilter = 'todos';
+let activeProjectFilter = 'ativos';  // Projetos: 'ativos' | 'concluidos' | 'todos'
 
 // ============== CALENDÁRIO ==============
 // Atualização 12: eventos passam a ter DATA REAL (iso 'AAAA-MM-DD', com ano). day/month/
@@ -283,7 +284,6 @@ function toggleSidebar() {
 function openNewAviso()   { if (!can('aviso.create'))      { showToast('Sem permissão para criar avisos.'); return; }      document.getElementById('modal-aviso').classList.add('active'); updateAvisoSubFields(); }
 function openNewEvent()   { if (!can('calendario.create')) { showToast('Apenas Gerente ou acima cria eventos.'); return; } document.getElementById('modal-evento').classList.add('active'); updateEventoSubFields(); }
 function openNewProject() { if (!can('projeto.create'))    { showToast('Sem permissão para criar projetos.'); return; }    populateLeaderSelect(); document.getElementById('modal-projeto').classList.add('active'); }
-function openNewCap()     { document.getElementById('modal-cap').classList.add('active'); }
 function openEditPerfil() { populateEditPerfil(); document.getElementById('modal-perfil-edit').classList.add('active'); }
 function closeModal(id)   { document.getElementById(id).classList.remove('active'); }
 
@@ -974,10 +974,14 @@ function submitEvent() {
 // ============== PROJETOS ==============
 function renderProjects() {
   const grid=document.getElementById('projects-grid'); if(!grid) return;
-  const active=projects.filter(p=>!p.concluded);
+  // Filtro Ativos / Concluídos / Todos (default Ativos). Concluídos aparecem esmaecidos.
+  const list=activeProjectFilter==='ativos'?projects.filter(p=>!p.concluded)
+    :activeProjectFilter==='concluidos'?projects.filter(p=>p.concluded)
+    :projects;
+  const empty={ativos:'Nenhum projeto em andamento.',concluidos:'Nenhum projeto concluído.',todos:'Nenhum projeto cadastrado.'}[activeProjectFilter];
   // Atualização 5: card flex-column + botão com margin-top:auto (alinhamento horizontal).
-  grid.innerHTML=active.length===0?'<div class="empty-state">Nenhum projeto em andamento.</div>'
-    :active.map(p=>`<div class="card proj-card">
+  grid.innerHTML=list.length===0?`<div class="empty-state">${empty}</div>`
+    :list.map(p=>`<div class="card proj-card${p.concluded?' concluded':''}">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
         <span class="tag">${gesc(p.sector)}</span><span class="tag ${p.statusClass}">${gesc(p.status)}</span></div>
       <h3 style="font-size:16px;">${gesc(p.name)}</h3>
@@ -987,7 +991,13 @@ function renderProjects() {
       <div class="divider"></div>
       <button class="btn btn-outline proj-card-bottom" style="width:100%;" onclick="openProject('${p.id}')">Abrir projeto</button>
     </div>`).join('');
+  document.querySelectorAll('.proj-filter-btn').forEach(btn=>{
+    btn.classList.toggle('btn-outline',btn.dataset.filter===activeProjectFilter);
+    btn.classList.toggle('btn-ghost',btn.dataset.filter!==activeProjectFilter);
+  });
 }
+
+function filterProjects(type) { activeProjectFilter=type; renderProjects(); }
 
 function renderProjectDetail() {
   const p=projects.find(x=>x.id===activeProjectId); if(!p) return;
@@ -2963,22 +2973,11 @@ function renderPonto() {
 
 // ============== RELÓGIO / DATA CENTRAL — Atualização 8 ==============
 // Fonte ÚNICA da data/hora "de agora" na plataforma. Base das automações de
-// tempo (viradas de dia/semana/mês). Um offset opcional permite simular outra
-// data para testar viradas sem esperar o tempo real (setSimulatedDate).
-let appClockOffsetMs = 0; // 0 = tempo real; ≠0 = data simulada (não persiste)
+// tempo (viradas de dia/semana/mês).
 
 // "Agora" e "hoje" (zerado às 00:00) — use em vez de new Date() pelo app.
-function appNow()   { return new Date(Date.now() + appClockOffsetMs); }
+function appNow()   { return new Date(); }
 function appToday() { const t = appNow(); t.setHours(0, 0, 0, 0); return t; }
-
-// Simula uma data (ferramenta de teste). Reavalia as viradas na hora.
-function setSimulatedDate(year, monthIndex, day) {
-  const n = appNow();
-  const target = new Date(year, monthIndex, day, n.getHours(), n.getMinutes());
-  appClockOffsetMs = target.getTime() - Date.now();
-  onClockTick();
-}
-function clearSimulatedDate() { appClockOffsetMs = 0; onClockTick(); }
 
 // Marcadores de período para detectar virada (compara tick a tick).
 function _isoDay(d)   { return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
@@ -3010,8 +3009,7 @@ function onClockTick() {
 }
 
 // ============== MODO PROTÓTIPO — Atualização 9 ==============
-// Ferramentas que só fazem sentido no protótipo: simular data e trocar o
-// usuário logado, para validar fluxos sem login real.
+// Troca rápida do usuário logado (seletor de perfil no topbar).
 
 // Reflete o currentUser no chip de usuário do topbar (nome, cargo, iniciais).
 function refreshTopbarUserChip() {
@@ -3031,33 +3029,10 @@ function refreshProtoUserSelect() {
   ).join('');
 }
 
-// Mostra a data simulada (vazio = tempo real).
-function refreshProtoDateInput() {
-  const input = document.getElementById('proto-date');
-  if (input) input.value = appClockOffsetMs === 0 ? '' : fmtDMY(appToday());
-}
-
-// Re-renderiza a página atual (após trocar data ou usuário). Usa currentPage para
+// Re-renderiza a página atual (após trocar de usuário). Usa currentPage para
 // cobrir também páginas fora da sidebar (ex.: 'projeto-detalhe' e seu cronograma).
 function rerenderCurrentPage() {
   const fn = pageInitializers[currentPage]; if (fn) fn();
-}
-
-function protoApplyDate() {
-  const v = (document.getElementById('proto-date')?.value || '').trim();
-  if (!isValidBR(v)) { showToast('Data inválida — use dd/mm/aaaa.'); return; }
-  const [d, m, y] = v.split('/').map(Number);
-  setSimulatedDate(y, m - 1, d);
-  refreshProtoDateInput();
-  rerenderCurrentPage();
-  showToast(`Data simulada: ${v}.`);
-}
-
-function protoClearDate() {
-  clearSimulatedDate();
-  refreshProtoDateInput();
-  rerenderCurrentPage();
-  showToast('Voltou para a data real.');
 }
 
 // "Vira" o usuário ativo a partir de um membro. Muta currentUser IN-PLACE
@@ -3090,8 +3065,6 @@ function protoSwitchUser(name) {
 
 function protoInit() {
   refreshProtoUserSelect();
-  maskDate(document.getElementById('proto-date'));
-  refreshProtoDateInput();
   refreshTopbarUserChip();
 }
 

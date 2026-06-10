@@ -89,7 +89,7 @@
       <div class="auth-links"><button class="auth-link" onclick="showAuthView('login')">Voltar ao login</button></div>
     </div>
   </div>
-  <div class="login-foot">🧪 Protótipo — autenticação local (e-mail/banco reais entram na migração)</div>
+  <div class="login-foot">Integre Jr · Portal EJ</div>
 </div>
 
 <div class="app" id="app-root" style="display:none;">
@@ -137,16 +137,8 @@
         Portal EJ
       </div>
 
-      <!-- Atualização 9: barra Modo Protótipo (data simulada + usuário ativo). Só na versão protótipo. -->
+      <!-- Seletor de perfil ativo (troca rápida de usuário). -->
       <div id="proto-bar" style="display:flex;align-items:center;gap:12px;font-size:12px;color:var(--gray-600);flex-wrap:wrap;">
-        <span title="Ferramentas só na versão protótipo" style="background:#fef3c7;color:#92400e;padding:2px 9px;border-radius:999px;font-weight:700;font-size:11px;">🧪 Protótipo</span>
-        <span style="display:flex;align-items:center;gap:5px;">
-          <span>Data:</span>
-          <input type="text" id="proto-date" placeholder="dd/mm/aaaa" maxlength="10"
-                 style="width:96px;padding:3px 6px;font-size:12px;border:1px solid var(--gray-300);border-radius:6px;" />
-          <button class="btn btn-outline" style="font-size:11px;padding:3px 9px;" onclick="protoApplyDate()">Aplicar</button>
-          <button class="btn btn-ghost"   style="font-size:11px;padding:3px 7px;" onclick="protoClearDate()" title="Voltar à data real">↺</button>
-        </span>
         <span style="display:flex;align-items:center;gap:5px;">
           <span>Logado:</span>
           <select id="proto-user" onchange="protoSwitchUser(this.value)"
@@ -350,22 +342,6 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-atividade')">Cancelar</button>
       <button class="btn btn-primary" onclick="submitActivity()">Criar atividade</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Nova Capacitação -->
-<div class="modal-overlay" id="modal-cap">
-  <div class="modal">
-    <h3>Nova capacitação</h3>
-    <div class="sub">Inclua a capacitação na jornada de evolução.</div>
-    <div class="form-row"><label>Título</label><input type="text" placeholder="Ex: Power BI básico" /></div>
-    <div class="form-row"><label>Pré-requisitos</label><select><option>Nenhum</option><option>Excel básico</option><option>Excel avançado</option></select></div>
-    <div class="form-row"><label>Habilita</label><input type="text" placeholder="Ex: Dashboards executivos" /></div>
-    <div class="form-row"><label>Descrição</label><textarea rows="3"></textarea></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-cap')">Cancelar</button>
-      <button class="btn btn-primary" onclick="closeModal('modal-cap'); showToast('Capacitação criada.')">Criar</button>
     </div>
   </div>
 </div>
