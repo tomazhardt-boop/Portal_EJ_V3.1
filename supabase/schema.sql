@@ -136,6 +136,7 @@ create table calendar_events (
   visibility  event_visibility not null default 'geral',
   category    event_category   not null default 'evento',
   color       text default '',
+  google_event_id text,                       -- id do evento no Google Calendar (Fase 5)
   created_by  uuid references profiles(id) on delete set null,
   created_at  timestamptz not null default now()
 );
@@ -284,10 +285,12 @@ insert into company_settings (id) values (true) on conflict do nothing;
 -- ============================================================================
 -- RLS — ROW LEVEL SECURITY
 -- ----------------------------------------------------------------------------
--- LIGAMOS a RLS em tudo agora (boa prática), mas com uma política TEMPORÁRIA
--- que libera leitura/escrita para qualquer usuário AUTENTICADO. Isso permite
--- desenvolver as Fases 1-3 sem travar. NA FASE 4, substituir estas políticas
--- pela matriz de permissões real por cargo/setor (espelhando COL_ACCESS).
+-- LIGAMOS a RLS em tudo agora (deny-all por padrão: sem política = nada passa).
+-- As POLÍTICAS REAIS por cargo/setor (espelhando a matriz COL_ACCESS do app)
+-- ficam em `policies.sql` — rode-o LOGO APÓS este arquivo:
+--   Supabase Dashboard > SQL Editor > cole schema.sql > Run
+--                                   > cole policies.sql > Run
+-- Sem policies.sql, as tabelas ficam acessíveis só pela chave service_role.
 -- ============================================================================
 do $$
 declare t text;
@@ -300,10 +303,6 @@ begin
     'ponto_weekly','company_settings'
   ] loop
     execute format('alter table %I enable row level security;', t);
-    execute format($f$
-      create policy "tmp_authenticated_all" on %I
-        for all to authenticated using (true) with check (true);
-    $f$, t);
   end loop;
 end $$;
 

@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Integre Jr — Plataforma</title>
+<!-- Modo noturno: aplica a classe ANTES do CSS pintar, evitando "flash" claro. -->
+<script>try{if(localStorage.getItem('theme_dark')==='1')document.documentElement.classList.add('dark');}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -11,15 +13,24 @@
 </head>
 <body>
 
+<!-- Splash de marca: aparece de imediato (antes do JS) e cobre a verificação de
+     sessão, para o login não piscar quem já está logado. Sumida por authBoot(). -->
+<div class="boot-splash" id="boot-splash" role="status" aria-live="polite">
+  <img src="logo.jpg" alt="Integre Jr" class="boot-logo" />
+  <div class="boot-title">Portal EJ</div>
+  <div class="spinner" aria-hidden="true"></div>
+  <span class="sr-only">Carregando…</span>
+</div>
+
 <!-- ============================================================= -->
 <!-- TELA DE LOGIN (Atualização Login)                              -->
-<!-- Fica ACIMA de tudo e é a primeira coisa exibida. O app só      -->
-<!-- aparece após autenticar. Tem 3 "views" alternadas via JS:      -->
+<!-- Começa OCULTA (display:none); authBoot() a revela só quando não -->
+<!-- há sessão válida. Tem 3 "views" alternadas via JS:              -->
 <!--   login  → e-mail + senha                                       -->
 <!--   setpw  → criar senha no 1º acesso (após logar com a padrão)   -->
 <!--   reset  → "mudar/esqueci senha" via código enviado ao e-mail   -->
 <!-- ============================================================= -->
-<div id="login-screen" class="login-screen">
+<div id="login-screen" class="login-screen" style="display:none;">
   <div class="login-card">
     <div class="login-brand">
       <img src="logo.jpg" alt="Integre Jr" class="login-logo" />
@@ -39,7 +50,7 @@
                onkeydown="if(event.key==='Enter')doLogin()" />
       </div>
       <div id="login-error" class="auth-error"></div>
-      <button class="btn btn-primary auth-btn" onclick="doLogin()">Entrar</button>
+      <button class="btn btn-primary auth-btn" onclick="doLogin(this)">Entrar</button>
       <div class="auth-links">
         <button class="auth-link" onclick="showAuthView('reset')">Esqueci / mudar senha</button>
       </div>
@@ -92,16 +103,26 @@
   <div class="login-foot">Integre Jr · Portal EJ</div>
 </div>
 
+<!-- Overlay de carregamento (cobre a tela durante as cargas do banco após o login). -->
+<div class="loading-overlay" id="app-loading" role="status" aria-live="polite" aria-hidden="true">
+  <div class="spinner lg" aria-hidden="true"></div>
+  <div class="loading-msg" id="app-loading-msg">Carregando…</div>
+</div>
+
+<a href="#content" class="skip-link">Pular para o conteúdo</a>
+
 <div class="app" id="app-root" style="display:none;">
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar" aria-label="Navegação principal">
     <div class="brand">
       <div class="brand-row">
         <div class="logo">
           <img src="logo.jpg" id="sidebar-logo" class="logo-img" alt="Integre Jr" title="Clique para alterar a logo da empresa" onclick="openLogoUpload()" />
           <span class="brand-name">Integre Jr</span>
         </div>
-        <div class="sidebar-toggle-btn" onclick="toggleSidebar()">◀</div>
+        <div class="sidebar-toggle-btn" onclick="toggleSidebar()" role="button" tabindex="0"
+             aria-label="Recolher ou expandir o menu lateral"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSidebar();}">◀</div>
       </div>
       <div class="tag">Portal EJ</div>
     </div>
@@ -133,16 +154,19 @@
   <!-- MAIN -->
   <main class="main">
     <header class="topbar">
-      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px;color:#2563eb;">
-        Portal EJ
+      <div class="topbar-left">
+        <!-- Hambúrguer: só aparece no mobile (CSS); abre/fecha a gaveta de navegação. -->
+        <button class="nav-burger" aria-label="Abrir menu de navegação" aria-expanded="false"
+                onclick="toggleMobileNav()">☰</button>
+        <div class="topbar-brand">Portal EJ</div>
       </div>
 
       <!-- Seletor de perfil ativo (troca rápida de usuário). -->
-      <div id="proto-bar" style="display:flex;align-items:center;gap:12px;font-size:12px;color:var(--gray-600);flex-wrap:wrap;">
-        <span style="display:flex;align-items:center;gap:5px;">
-          <span>Logado:</span>
-          <select id="proto-user" onchange="protoSwitchUser(this.value)"
-                  style="padding:3px 6px;font-size:12px;border:1px solid var(--gray-300);border-radius:6px;max-width:200px;"></select>
+      <div id="proto-bar" class="proto-bar">
+        <span class="u-row gap-6">
+          <label for="proto-user">Logado:</label>
+          <select id="proto-user" class="proto-select" onchange="protoSwitchUser(this.value)"
+                  aria-label="Trocar usuário logado"></select>
         </span>
       </div>
 
@@ -151,16 +175,19 @@
           <div class="name">Carlos Mendes</div>
           <div class="role">Presidente</div>
         </div>
-        <div class="avatar" id="topbar-avatar">CM</div>
+        <div class="avatar" id="topbar-avatar" aria-hidden="true">CM</div>
         <!-- Atualização Login: encerra a sessão e volta à tela de login -->
-        <button class="btn btn-ghost" title="Sair" onclick="logout()" style="font-size:12px;padding:6px 10px;">Sair</button>
+        <button class="btn btn-ghost btn-compact" aria-label="Sair da conta" onclick="logout()">Sair</button>
       </div>
     </header>
 
-    <div class="content" id="content">
+    <div class="content" id="content" tabindex="-1">
       <!-- páginas carregadas dinamicamente via script.js -->
     </div>
   </main>
+
+  <!-- Backdrop da gaveta de navegação (mobile): tocar fora fecha o menu. -->
+  <div class="nav-backdrop" id="nav-backdrop" onclick="closeMobileNav()" aria-hidden="true"></div>
 </div>
 
 <!-- Modal Novo Aviso -->
@@ -183,28 +210,17 @@
     </div>
     <div class="form-row" id="aviso-setorial-opts" style="display:none;">
       <label>Setores</label>
-      <div style="display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--gray-50);border-radius:8px;">
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" value="ADM/FIN" /> ADM/FIN</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" value="Comercial" /> Comercial</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" value="Projetos" /> Projetos</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" value="Coordenação" /> Coordenação</label>
+      <div class="check-list" id="aviso-setorial-list">
+        <label class="check-label"><input type="checkbox" value="ADM/FIN" /> ADM/FIN</label>
+        <label class="check-label"><input type="checkbox" value="Comercial" /> Comercial</label>
+        <label class="check-label"><input type="checkbox" value="Projetos" /> Projetos</label>
+        <label class="check-label"><input type="checkbox" value="Coordenação" /> Coordenação</label>
       </div>
     </div>
     <div class="form-row" id="aviso-direcionado-opts" style="display:none;">
       <label>Membros</label>
-      <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;padding:8px;background:var(--gray-50);border-radius:8px;">
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Ana Souza</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Pedro Lima</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Júlia Ferreira</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Lucas Almeida</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Bruna Costa</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Rafael Oliveira</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Marina Santos</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Felipe Rocha</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Camila Dias</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Gustavo Pereira</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Larissa Mota</label>
-      </div>
+      <!-- Preenchido por populateAvisoMembros() com os membros REAIS (valor = e-mail). -->
+      <div class="check-list scroll" id="aviso-direcionado-list"></div>
     </div>
     <div class="form-row">
       <label>Data de expiração (opcional)</label>
@@ -250,28 +266,18 @@
     </div>
     <div class="form-row" id="evento-setorial-opts" style="display:none;">
       <label>Setores</label>
-      <div style="display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--gray-50);border-radius:8px;">
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> ADM/FIN</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Comercial</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Projetos</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Coordenação</label>
+      <div class="check-list" id="evento-setorial-list">
+        <label class="check-label"><input type="checkbox" value="ADM/FIN" /> ADM/FIN</label>
+        <label class="check-label"><input type="checkbox" value="Comercial" /> Comercial</label>
+        <label class="check-label"><input type="checkbox" value="Projetos" /> Projetos</label>
+        <label class="check-label"><input type="checkbox" value="Coordenação" /> Coordenação</label>
       </div>
     </div>
     <div class="form-row" id="evento-restrito-opts" style="display:none;">
       <label>Membros</label>
-      <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;padding:8px;background:var(--gray-50);border-radius:8px;">
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Ana Souza</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Pedro Lima</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Júlia Ferreira</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Lucas Almeida</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Bruna Costa</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Rafael Oliveira</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Marina Santos</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Felipe Rocha</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Camila Dias</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Gustavo Pereira</label>
-        <label style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" /> Larissa Mota</label>
-      </div>
+      <!-- Preenchido dinamicamente por populateEventoMembros() com os membros
+           REAIS (valor de cada checkbox = e-mail, usado como convidado). -->
+      <div class="check-list scroll" id="evento-restrito-list"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-evento')">Cancelar</button>
@@ -610,10 +616,13 @@
 </div>
 
 <!-- Toast -->
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- Supabase (Fase 1: login real). A lib e a config vêm ANTES do script.js. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Google Identity Services (Fase 5): OAuth no navegador p/ o Google Agenda.
+     Carregado antes do script.js para já estar disponível quando preciso. -->
+<script src="https://accounts.google.com/gsi/client"></script>
 <script src="config.js"></script>
 <script src="script.js"></script>
 </body>

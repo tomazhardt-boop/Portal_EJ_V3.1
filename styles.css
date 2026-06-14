@@ -52,9 +52,11 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   position: fixed;
   height: 100vh;
   overflow-y: auto;
+  scrollbar-width: none;          /* Firefox: esconde a barra (rolagem segue ok) */
   display: flex;
   flex-direction: column;
 }
+.sidebar::-webkit-scrollbar { display: none; } /* Chrome/Edge/Safari */
 .sidebar .brand {
   padding: 0 20px 20px;
   border-bottom: 1px solid rgba(255,255,255,0.12);
@@ -176,6 +178,19 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-family: inherit; font-size: 14px; flex: 1;
   color: var(--gray-800);
 }
+.topbar-brand {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700; font-size: 15px; color: var(--blue-600);
+}
+.proto-bar {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 12px; color: var(--gray-600); flex-wrap: wrap;
+}
+.proto-select {
+  padding: 3px 6px; font-size: 12px;
+  border: 1px solid var(--gray-300); border-radius: 6px; max-width: 200px;
+}
+.btn-compact { font-size: 12px; padding: 6px 10px; }
 .user-chip {
   display: flex; align-items: center; gap: 10px;
 }
@@ -286,6 +301,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .btn-ghost { color: var(--gray-600); }
 .btn-ghost:hover { background: var(--gray-100); }
 .btn-danger { background: var(--red-100); color: var(--red-700); }
+/* Botão "Voltar" no topo de páginas de detalhe. */
+.btn-back { font-size: 13px; margin-bottom: 8px; }
 
 .tag {
   display: inline-block;
@@ -320,6 +337,8 @@ td {
 }
 tr:last-child td { border-bottom: none; }
 tr:hover td { background: var(--gray-50); }
+/* Célula de "nenhum resultado" numa tabela. */
+td.td-empty { color: var(--gray-500); padding: 12px; }
 
 select, input[type="text"], input[type="date"], textarea {
   padding: 8px 12px;
@@ -450,6 +469,16 @@ select:focus, input:focus, textarea:focus {
   letter-spacing: 0.5px;
 }
 .form-row input, .form-row select, .form-row textarea { width: 100%; }
+/* Caixa de opções (checkboxes) dentro de um form-row. */
+.check-list {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; background: var(--gray-50); border-radius: 8px;
+}
+.check-list.scroll { max-height: 160px; overflow-y: auto; }
+.check-label {
+  text-transform: none; letter-spacing: 0; font-weight: 500;
+  display: flex; align-items: center; gap: 6px;
+}
 .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
 
 /* Trainee ranking */
@@ -533,6 +562,69 @@ select:focus, input:focus, textarea:focus {
 .app.sidebar-collapsed .brand .logo .logo-img {
   width: 32px;
   height: 32px;
+}
+
+/* ===== Navegação mobile (gaveta deslizante) ===== */
+/* Hambúrguer e backdrop ficam OCULTOS no desktop; o @media abaixo os liga. */
+.topbar-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.nav-burger {
+  display: none;
+  background: none; border: none; cursor: pointer;
+  font-size: 22px; line-height: 1; color: var(--gray-700);
+  padding: 4px 8px; border-radius: 8px;
+}
+.nav-burger:hover { background: var(--gray-100); }
+.nav-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(15,23,42,0.45);
+  z-index: 90;
+}
+
+@media (max-width: 768px) {
+  /* A sidebar deixa de empurrar o conteúdo e vira uma gaveta por cima dele. */
+  .sidebar {
+    transform: translateX(-100%);
+    width: 256px;
+    z-index: 95;
+    box-shadow: 6px 0 30px -8px rgba(0,0,0,0.45);
+  }
+  .app.mobile-nav-open .sidebar { transform: translateX(0); }
+  .main { margin-left: 0; }
+  .app.mobile-nav-open .nav-backdrop { display: block; }
+  .nav-burger { display: inline-flex; }
+
+  /* O "recolher" (64px) é coisa de desktop: anula o modo colapsado no mobile. */
+  .sidebar-toggle-btn { display: none; }
+  .app.sidebar-collapsed .sidebar { width: 256px; }
+  .app.sidebar-collapsed .main { margin-left: 0; }
+  .app.sidebar-collapsed .nav-item { justify-content: flex-start; padding: 10px 24px; }
+  .app.sidebar-collapsed .nav-item > span { display: inline; }
+  .app.sidebar-collapsed .nav-section-title { display: block; }
+  .app.sidebar-collapsed .brand .logo .brand-name { display: inline; }
+  .app.sidebar-collapsed .brand .tag { display: block; }
+
+  /* Topbar compacta: esconde nome/cargo (o avatar já identifica) e joga o
+     seletor de usuário para uma segunda linha. */
+  .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+  .user-chip .info { display: none; }
+  .proto-bar { order: 3; flex-basis: 100%; justify-content: flex-start; }
+
+  /* Conteúdo com respiro menor no celular. */
+  .content { padding: 18px 14px; }
+  .page-header h1 { font-size: 22px; }
+
+  /* Qualquer grade multi-coluna colapsa para 1 coluna. */
+  .grid.cols-2, .grid.cols-3, .grid.cols-4 { grid-template-columns: 1fr; }
+  /* Grade de meses (modal de faturamento) é inline 4 col → afrouxa p/ 2. */
+  #anual-mensal-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+
+  /* Tabelas largas rolam na horizontal em vez de espremer/quebrar. */
+  .content table { display: block; overflow-x: auto; white-space: nowrap; }
+
+  /* Modais aproveitam melhor a tela estreita. */
+  .modal-overlay { padding: 12px; }
+  .modal { padding: 18px; }
 }
 
 /* Capacitações tree — grid responsivo (Atualização 4.1) */
@@ -1041,3 +1133,223 @@ select:focus, input:focus, textarea:focus {
   margin-bottom: 14px; text-align: center; line-height: 1.4;
 }
 .login-foot { color: rgba(255,255,255,0.85); font-size: 12px; margin-top: 18px; }
+
+/* ============== SPLASH DE ABERTURA ============== */
+/* Tela de marca exibida IMEDIATAMENTE no carregamento (já no HTML, antes do JS),
+   enquanto a sessão é verificada. Some com fade revelando o dashboard ou o login —
+   assim o formulário de login não "pisca" para quem já está logado. */
+.boot-splash {
+  position: fixed; inset: 0; z-index: 700;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 18px;
+  background: linear-gradient(135deg, var(--blue-700), var(--blue-900));
+  transition: opacity 0.35s ease;
+}
+.boot-splash.hide { opacity: 0; pointer-events: none; }
+.boot-splash .boot-logo {
+  width: 72px; height: 72px; border-radius: 50%;
+  object-fit: cover; background: white;
+  box-shadow: 0 12px 34px -10px rgba(0,0,0,0.55);
+}
+.boot-splash .boot-title {
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+  font-size: 20px; color: white; letter-spacing: -0.3px;
+}
+.boot-splash .spinner { color: rgba(255,255,255,0.85); }
+
+/* ============== ESTADOS DE CARREGAMENTO ============== */
+/* Spinner reutilizável (gira via @keyframes). currentColor herda a cor do contexto. */
+.spinner {
+  display: inline-block;
+  width: 18px; height: 18px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+.spinner.lg { width: 34px; height: 34px; border-width: 3px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 1.4s; } }
+
+/* Overlay de carregamento (cobre a tela durante as cargas do banco no login). */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 600;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+  background: linear-gradient(135deg, var(--blue-700), var(--blue-900));
+  color: white;
+}
+.loading-overlay.show { display: flex; }
+.loading-overlay .loading-msg { font-size: 14px; color: rgba(255,255,255,0.9); }
+
+/* Botão em estado "ocupado": esconde o texto e mostra um spinner centralizado. */
+.btn.is-loading { position: relative; color: transparent !important; pointer-events: none; }
+.btn.is-loading::after {
+  content: ""; position: absolute; inset: 0; margin: auto;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.7); border-top-color: transparent;
+  border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+.btn-outline.is-loading::after, .btn-ghost.is-loading::after { border-color: var(--blue-400); border-top-color: transparent; }
+
+/* Skeleton para listas/cards enquanto o conteúdo não chegou. */
+.skeleton {
+  background: linear-gradient(90deg, var(--gray-100) 25%, var(--gray-200) 37%, var(--gray-100) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-pulse 1.4s ease infinite;
+  border-radius: 8px;
+}
+@keyframes skeleton-pulse { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+/* ============== ACESSIBILIDADE ============== */
+/* Foco visível por teclado (não aparece no clique de mouse, via :focus-visible). */
+:focus-visible {
+  outline: 2px solid var(--blue-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.nav-item:focus-visible { outline-offset: -2px; }
+/* Some o outline padrão só quando NÃO é navegação por teclado. */
+:focus:not(:focus-visible) { outline: none; }
+/* Atalho "pular para o conteúdo" para leitores de tela / teclado. */
+.skip-link {
+  position: absolute; left: -999px; top: 8px; z-index: 700;
+  background: white; color: var(--blue-700);
+  padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 13px;
+  box-shadow: 0 6px 18px -6px rgba(0,0,0,0.3);
+}
+.skip-link:focus { left: 8px; }
+/* Esconde visualmente mas mantém para leitores de tela. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+/* ============== UTILITÁRIOS (substituem estilos inline repetidos) ============== */
+/* Texto secundário/apagado — o padrão inline mais repetido no app. */
+.u-muted      { color: var(--gray-500); }
+.u-muted-soft { color: var(--gray-400); }
+.u-ink        { color: var(--gray-700); }
+.text-xs  { font-size: 11px; }
+.text-sm  { font-size: 12px; }
+.text-13  { font-size: 13px; }
+.fw-600 { font-weight: 600; }
+.fw-700 { font-weight: 700; }
+.center { text-align: center; }
+/* Flex helpers (gap padrão 8px; variantes de gap quando necessário). */
+.u-row { display: flex; align-items: center; gap: 8px; }
+.u-col { display: flex; flex-direction: column; gap: 8px; }
+.u-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.gap-6 { gap: 6px; } .gap-10 { gap: 10px; } .gap-12 { gap: 12px; }
+/* Ocupar a largura toda numa grade. */
+.full-col { grid-column: 1 / -1; }
+/* Espaçamentos pontuais usados nas páginas. */
+.mt-2 { margin-top: 2px; } .mt-16 { margin-top: 16px; } .mt-24 { margin-top: 24px; }
+.mb-8 { margin-bottom: 8px; } .mb-12 { margin-bottom: 12px; } .mb-14 { margin-bottom: 14px; } .mb-24 { margin-bottom: 24px; }
+/* Grade de cartões de pessoa que se reflui sozinha (dashboard "Membros"). */
+.member-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+/* Barra de filtros (linha de botões acima de uma lista). */
+.filter-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+/* Cabeçalho e estatísticas do modal de perfil de membro. */
+.profile-head {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 20px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--gray-200);
+}
+.profile-head h3 { margin: 0; font-size: 18px; }
+.profile-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.stat-tile { text-align: center; padding: 12px; border-radius: 8px; background: var(--blue-50); }
+.stat-tile .st-num { font-size: 22px; font-weight: 800; color: var(--blue-700); }
+.stat-tile .st-label { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+.stat-tile.green { background: var(--green-100); } .stat-tile.green .st-num { color: var(--green-700); }
+.stat-tile.amber { background: var(--amber-100); } .stat-tile.amber .st-num { color: var(--amber-700); }
+/* Rótulo de seção em maiúsculas (ex.: "Projetos em andamento"). */
+.section-label {
+  font-size: 12px; font-weight: 600; color: var(--gray-500);
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
+}
+/* Linha compacta de lista (nome + tag) dentro de cards/modais. */
+.mini-list-row {
+  padding: 8px 12px; background: var(--gray-50); border-radius: 6px;
+  font-size: 13px; display: flex; justify-content: space-between; align-items: center;
+}
+/* Linha de membro (lista clicável de pessoas — perfil/dashboard/projeto). */
+.member-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; background: var(--gray-50); border-radius: 8px;
+}
+.member-row .m-name { font-weight: 600; }
+.member-row .m-meta { font-size: 11px; color: var(--gray-500); }
+
+/* ============== TOGGLE (interruptor liga/desliga) ============== */
+.switch { display: inline-flex; align-items: center; gap: 12px; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch .slider {
+  width: 46px; height: 26px; border-radius: 999px; flex-shrink: 0;
+  background: var(--gray-300); position: relative; transition: background 0.2s;
+}
+.switch .slider::before {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%; background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: transform 0.2s;
+}
+.switch input:checked + .slider { background: var(--blue-600); }
+.switch input:checked + .slider::before { transform: translateX(20px); }
+.switch input:focus-visible + .slider { box-shadow: 0 0 0 3px var(--blue-100); }
+
+/* ============== MODO NOTURNO (tema escuro) ============== */
+/* Aplicado via classe `dark` no <html> (ver script no <head> e toggleDarkMode).
+   Estratégia: invertemos a rampa de cinzas (quase todo o app usa var(--gray-*),
+   então texto e fundos viram automaticamente) e tratamos à parte as superfícies
+   que usam `white` cravado (cards, topbar, modais, inputs) e o toast. A rampa
+   azul (marca) NÃO é mexida — segue o tema de cor escolhido. */
+html.dark {
+  --gray-50:  #0e1117;  /* fundo da página            */
+  --gray-100: #161b22;  /* trilhos / hover / sutil     */
+  --gray-200: #272e38;  /* bordas                      */
+  --gray-300: #3a414c;  /* bordas de input             */
+  --gray-400: #6e7681;
+  --gray-500: #9aa4b2;  /* texto secundário            */
+  --gray-600: #b1bac4;
+  --gray-700: #c9d1d9;
+  --gray-800: #e6edf3;  /* texto principal             */
+  --gray-900: #f0f6fc;  /* títulos                     */
+  /* Pílulas de status: fundo "100" escurece, texto "700" clareia. */
+  --green-100: #13321f; --green-700: #56d98a;
+  --amber-100: #3a2c0a; --amber-700: #fbbf24;
+  --red-100:   #3a1620; --red-700:   #fb7185;
+}
+/* Superfícies que eram `background: white`. */
+html.dark .card,
+html.dark .stat-card,
+html.dark .topbar,
+html.dark .modal,
+html.dark .login-card,
+html.dark .diagram-wrap,
+html.dark .cap-node,
+html.dark .cap-node.add-slot,
+html.dark .atividade-card,
+html.dark .gantt-wrap { background: #171c23; }
+/* Campos de formulário (exceto checkbox/radio/color que renderizam sozinhos). */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+html.dark select,
+html.dark textarea {
+  background: #171c23; color: var(--gray-800); border-color: var(--gray-300);
+}
+/* Botão "outline" não pode ter fundo branco no escuro. */
+html.dark .btn-outline { background: #171c23; color: var(--blue-300); border-color: var(--gray-300); }
+html.dark .btn-outline:hover { background: #1f262f; }
+/* Tiles de estatística (perfil de membro): fundo neutro escuro + número claro. */
+html.dark .stat-tile { background: var(--gray-100); }
+html.dark .stat-tile .st-num { color: var(--blue-300); }
+/* Sidebar: escurece sobre a cor ATUAL da marca, seja ela qual for. O preto
+   translúcido multiplica o brilho → cor clara escurece mais, cor escura pouco. */
+html.dark .sidebar {
+  background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), var(--blue-700);
+}
+/* Toast usava gray-900 como FUNDO (que agora é claro): força escuro. */
+html.dark .toast { background: #2b333f; color: #f0f6fc; }
+/* Hover de linha de tabela visível sobre o fundo escuro. */
+html.dark tr:hover td { background: var(--gray-100); }

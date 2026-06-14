@@ -1,10 +1,10 @@
 <div class="page-header">
   <div>
-    <button class="btn btn-outline" onclick="goTo('projetos')" style="font-size:13px; margin-bottom:8px;">← Voltar para projetos</button>
+    <button class="btn btn-outline btn-back" onclick="goTo('projetos')">Voltar para projetos</button>
     <h1 id="proj-name">Projeto</h1>
     <div class="subtitle">Detalhes do projeto, membros e cronograma de tarefas.</div>
   </div>
-  <div style="display:flex; gap:8px;">
+  <div class="u-row">
     <button class="btn btn-purple" id="proj-conclude-btn" onclick="concludeProject()" style="display:none;">✓ Projeto concluído</button>
     <button class="btn btn-outline" id="proj-drive-btn">📁 Drive</button>
     <button class="btn btn-primary" onclick="openNewTask()">+ Nova tarefa</button>
@@ -14,15 +14,15 @@
 <div class="grid cols-2">
   <div class="card flex-card">
     <div class="card-title">Informações</div>
-    <div id="proj-info" style="display:flex; flex-direction:column; gap:8px; font-size:13px;"></div>
+    <div id="proj-info" class="u-col text-13"></div>
   </div>
 
   <div class="card flex-card">
     <div class="card-title">Membros vinculados</div>
-    <div id="proj-members" style="display:flex; flex-direction:column; gap:8px;"></div>
+    <div id="proj-members" class="u-col"></div>
   </div>
 
-  <div class="card" style="grid-column: 1 / -1;">
+  <div class="card full-col">
     <div class="card-title">Tarefas</div>
     <table>
       <thead><tr><th></th><th>Tarefa</th><th>Responsável</th><th>Período</th><th>Status</th></tr></thead>
@@ -30,7 +30,7 @@
     </table>
   </div>
 
-  <div class="card" style="grid-column: 1 / -1;">
+  <div class="card full-col">
     <div class="card-title">
       <span>Cronograma</span>
       <span id="proj-cronograma-controls"></span>

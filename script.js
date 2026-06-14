@@ -245,9 +245,9 @@ async function goTo(page, opts = {}) {
     const response = await fetch(`pages/${page}.html`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     contentEl.innerHTML = await response.text();
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => { n.classList.remove('active'); n.removeAttribute('aria-current'); });
     const navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
-    if (navItem) navItem.classList.add('active');
+    if (navItem) { navItem.classList.add('active'); navItem.setAttribute('aria-current', 'page'); }
     currentPage = page;           // rastreia a página ativa (p/ re-render em viradas de data)
     if (pageInitializers[page]) pageInitializers[page]();
     applyPagePermissions(page);   // esconde botões de criação/edição não permitidos
@@ -270,7 +270,13 @@ function openProject(id) {
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', () => goTo(item.dataset.page));
+  // Acessibilidade: divs viram "botões" navegáveis por teclado (Tab + Enter/Espaço).
+  item.setAttribute('role', 'button');
+  item.setAttribute('tabindex', '0');
+  item.addEventListener('click', () => { goTo(item.dataset.page); closeMobileNav(); });
+  item.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goTo(item.dataset.page); closeMobileNav(); }
+  });
 });
 
 function toggleSidebar() {
@@ -280,9 +286,26 @@ function toggleSidebar() {
   if (btn) btn.textContent = app.classList.contains('sidebar-collapsed') ? '▶' : '◀';
 }
 
+// Gaveta de navegação no MOBILE: a sidebar vira um menu deslizante por cima do
+// conteúdo. (toggleSidebar acima é o "recolher" do DESKTOP — coisas diferentes.)
+function toggleMobileNav() {
+  const app = document.querySelector('.app');
+  if (!app) return;
+  const open = app.classList.toggle('mobile-nav-open');
+  const burger = document.querySelector('.nav-burger');
+  if (burger) burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function closeMobileNav() {
+  const app = document.querySelector('.app');
+  if (!app || !app.classList.contains('mobile-nav-open')) return;
+  app.classList.remove('mobile-nav-open');
+  const burger = document.querySelector('.nav-burger');
+  if (burger) burger.setAttribute('aria-expanded', 'false');
+}
+
 // ============== MODAIS ==============
-function openNewAviso()   { if (!can('aviso.create'))      { showToast('Sem permissão para criar avisos.'); return; }      document.getElementById('modal-aviso').classList.add('active'); updateAvisoSubFields(); }
-function openNewEvent()   { if (!can('calendario.create')) { showToast('Apenas Gerente ou acima cria eventos.'); return; } document.getElementById('modal-evento').classList.add('active'); updateEventoSubFields(); }
+function openNewAviso()   { if (!can('aviso.create'))      { showToast('Sem permissão para criar avisos.'); return; }      populateAvisoMembros(); document.getElementById('modal-aviso').classList.add('active'); updateAvisoSubFields(); }
+function openNewEvent()   { if (!can('calendario.create')) { showToast('Apenas Gerente ou acima cria eventos.'); return; } populateEventoMembros(); document.getElementById('modal-evento').classList.add('active'); updateEventoSubFields(); }
 function openNewProject() { if (!can('projeto.create'))    { showToast('Sem permissão para criar projetos.'); return; }    populateLeaderSelect(); document.getElementById('modal-projeto').classList.add('active'); }
 function openEditPerfil() { populateEditPerfil(); document.getElementById('modal-perfil-edit').classList.add('active'); }
 function closeModal(id)   { document.getElementById(id).classList.remove('active'); }
@@ -435,6 +458,31 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ---- Estados de carregamento ----
+// Overlay de tela cheia, usado durante as cargas do banco no login.
+function showAppLoading(msg) {
+  const el = document.getElementById('app-loading'); if (!el) return;
+  const m = document.getElementById('app-loading-msg'); if (m && msg) m.textContent = msg;
+  el.classList.add('show'); el.setAttribute('aria-hidden', 'false');
+}
+function hideAppLoading() {
+  const el = document.getElementById('app-loading'); if (!el) return;
+  el.classList.remove('show'); el.setAttribute('aria-hidden', 'true');
+}
+// Splash de abertura: some com fade quando o boot decide (app pronto ou login).
+function hideBootSplash() {
+  const el = document.getElementById('boot-splash'); if (!el) return;
+  el.classList.add('hide'); el.setAttribute('aria-hidden', 'true');
+  setTimeout(() => { el.style.display = 'none'; }, 400);  // remove após o fade
+}
+// Coloca/retira um botão no estado "ocupado" (spinner + bloqueado). Retorna uma
+// função que restaura o botão ao estado anterior.
+function setBtnLoading(btn) {
+  if (!btn) return () => {};
+  btn.classList.add('is-loading'); btn.setAttribute('aria-busy', 'true'); btn.disabled = true;
+  return () => { btn.classList.remove('is-loading'); btn.removeAttribute('aria-busy'); btn.disabled = false; };
 }
 
 // ============== HELPERS ==============
@@ -613,7 +661,7 @@ function renderDashboard() {
   const avisosEl = document.getElementById('dash-avisos');
   if (avisosEl) avisosEl.innerHTML = activeAvisos().slice(0,3).map(a => `
     <div class="aviso ${a.color}"><div class="head"><div class="title">${gesc(a.title)}</div><span class="tag ${a.color}">${a.type.charAt(0).toUpperCase()+a.type.slice(1)}</span></div>
-    <div class="body">${a.body}</div></div>`).join('') || '<div style="color:var(--gray-500);font-size:13px;">Nenhum aviso.</div>';
+    <div class="body">${gsafe(a.body)}</div></div>`).join('') || '<div class="u-muted text-13">Nenhum aviso.</div>';
 
   const eventosEl = document.getElementById('dash-eventos');
   const _todayIso = `${_ty}-${String(_tm+1).padStart(2,'0')}-${String(_td.getDate()).padStart(2,'0')}`;
@@ -622,7 +670,7 @@ function renderDashboard() {
     <div class="event-row">
       <div class="event-date"><div class="day">${e.day}</div><div class="mon">${e.month}</div></div>
       <div class="event-info"><div class="title">${e.title}</div><div class="meta">${e.meta}</div></div>
-    </div>`).join('') || '<div style="color:var(--gray-500);font-size:13px;">Nenhum evento próximo.</div>';
+    </div>`).join('') || '<div class="u-muted text-13">Nenhum evento próximo.</div>';
 
   const projListEl = document.getElementById('dash-proj-list');
   if (projListEl) projListEl.innerHTML = projects.filter(p=>!p.concluded).slice(0,4).map(p =>
@@ -667,32 +715,32 @@ function openMemberProfile(name) {
   const concluded = projects.filter(p => p.memberNames.includes(name) && p.concluded);
   const t = m.role === 'Trainee' ? m : null; // pontos vivem no próprio membro agora
   const content = `
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--gray-200);">
+    <div class="profile-head">
       <div class="avatar lg">${initials(name)}</div>
       <div>
-        <h3 style="margin:0;font-size:18px;">${gesc(name)}</h3>
-        <div style="color:var(--gray-500);font-size:13px;margin-top:2px;">${gesc(m.role)} · ${gesc(m.sector)}</div>
-        <div style="color:var(--gray-400);font-size:12px;margin-top:2px;">📚 ${gesc(m.course || '—')}</div>
-        <div style="color:var(--gray-400);font-size:12px;">📅 Entrou em ${gesc(m.entryDate || '—')}</div>
+        <h3>${gesc(name)}</h3>
+        <div class="u-muted text-13 mt-2">${gesc(m.role)} · ${gesc(m.sector)}</div>
+        <div class="u-muted-soft text-sm mt-2">📚 ${gesc(m.course || '—')}</div>
+        <div class="u-muted-soft text-sm">📅 Entrou em ${gesc(m.entryDate || '—')}</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">
-      <div style="text-align:center;padding:12px;background:var(--blue-50);border-radius:8px;">
-        <div style="font-size:22px;font-weight:800;color:var(--blue-700);">${active.length}</div>
-        <div style="font-size:11px;color:var(--gray-500);margin-top:2px;">Projetos ativos</div>
+    <div class="profile-stats">
+      <div class="stat-tile">
+        <div class="st-num">${active.length}</div>
+        <div class="st-label">Projetos ativos</div>
       </div>
-      <div style="text-align:center;padding:12px;background:var(--green-100);border-radius:8px;">
-        <div style="font-size:22px;font-weight:800;color:var(--green-700);">${concluded.length}</div>
-        <div style="font-size:11px;color:var(--gray-500);margin-top:2px;">Concluídos</div>
+      <div class="stat-tile green">
+        <div class="st-num">${concluded.length}</div>
+        <div class="st-label">Concluídos</div>
       </div>
       ${t
-        ? `<div style="text-align:center;padding:12px;background:var(--amber-100);border-radius:8px;"><div style="font-size:22px;font-weight:800;color:var(--amber-700);">${t.points}</div><div style="font-size:11px;color:var(--gray-500);margin-top:2px;">Pts trainee</div></div>`
-        : `<div style="text-align:center;padding:12px;background:var(--blue-50);border-radius:8px;"><div style="font-size:22px;font-weight:800;color:var(--blue-700);">${m.capsCount || 0}</div><div style="font-size:11px;color:var(--gray-500);margin-top:2px;">Capacitações</div></div>`}
+        ? `<div class="stat-tile amber"><div class="st-num">${t.points}</div><div class="st-label">Pts trainee</div></div>`
+        : `<div class="stat-tile"><div class="st-num">${m.capsCount || 0}</div><div class="st-label">Capacitações</div></div>`}
     </div>
     ${active.length > 0 ? `
-      <div style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Projetos em andamento</div>
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        ${active.map(p=>`<div style="padding:8px 12px;background:var(--gray-50);border-radius:6px;font-size:13px;display:flex;justify-content:space-between;align-items:center;"><b>${gesc(p.name)}</b><span class="tag">${gesc(p.sector)}</span></div>`).join('')}
+      <div class="section-label">Projetos em andamento</div>
+      <div class="u-col gap-6">
+        ${active.map(p=>`<div class="mini-list-row"><b>${gesc(p.name)}</b><span class="tag">${gesc(p.sector)}</span></div>`).join('')}
       </div>` : ''}`;
   document.getElementById('membro-perfil-content').innerHTML = content;
   document.getElementById('modal-membro-perfil').classList.add('active');
@@ -864,6 +912,8 @@ function activeAvisos() { return avisos.filter(a => !isAvisoExpired(a)); }
 
 function renderAvisos() {
   const list=document.getElementById('avisos-list'); if(!list) return;
+  updateGoogleCalUI();   // mostra/atualiza o botão "Conectar conta Google"
+  gcalSilentRestore();   // tenta reconectar sem interface (ex.: após F5)
   const vigentes=activeAvisos();
   const filtered=activeAvisoFilter==='todos'?vigentes:vigentes.filter(a=>a.type===activeAvisoFilter);
   const canDelete=(currentUser.role==='Presidente'||currentUser.role==='Diretor');
@@ -878,7 +928,7 @@ function renderAvisos() {
             ${canDelete?`<button class="btn btn-ghost" style="padding:2px 8px;font-size:12px;color:var(--red-700);" onclick="deleteAviso(${jsArg(String(a.id))})">✕</button>`:''}
           </div>
         </div>
-        <div class="body">${a.body}</div>
+        <div class="body">${gsafe(a.body)}</div>
         <div style="font-size:12px;color:var(--gray-500);margin-top:6px;">Por: ${gesc(a.author)}</div>
       </div>`).join('');
   document.querySelectorAll('.aviso-filter-btn').forEach(btn=>{
@@ -902,6 +952,8 @@ async function submitAviso() {
   if(!title||!body){showToast('Preencha título e mensagem.');return;}
   // Não cria aviso já vencido (evita gravar lixo no banco e avisa o erro de data).
   if(expiry && isAvisoExpired({expiry})){showToast('A data de expiração já passou. Escolha uma data futura.');return;}
+  // Captura os destinatários ANTES de fechar o modal (lê as caixas de seleção).
+  const recipients = avisoRecipientEmails(alcance);
   const novo={title,type:alcance,body,author:`${currentUser.name} (${currentUser.role})`,time:'Agora',color:'',expiry:expiry||null};
   const r = await dbCreateAviso(novo);          // grava no banco
   novo.id = r ? r.id : avisoIdCounter++;         // usa o uuid do banco (ou fallback local)
@@ -911,6 +963,13 @@ async function submitAviso() {
   ['aviso-titulo','aviso-mensagem','aviso-expiry'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   if(document.getElementById('avisos-list'))renderAvisos();
   showToast('Aviso enviado.');
+  // Notificação por e-mail (best-effort), enviada DA conta Google do autor.
+  if (googleCalConnected() && recipients.length) {
+    const ok = await gmailSend({ to: memberEmail(currentUser), bcc: recipients.join(', '), subject: `Aviso: ${title}`, html: avisoEmailHtml(novo) });
+    if (ok) showToast(`Aviso notificado por e-mail a ${recipients.length} membro(s).`);
+  } else if (googleCalEnabled() && recipients.length) {
+    showToast('Dica: conecte sua conta Google (em Avisos) para notificar por e-mail.');
+  }
 }
 
 // ============== CALENDÁRIO ==============
@@ -918,6 +977,8 @@ function renderCalendario() {
   const s=document.getElementById('cal-search');
   if(s&&!s._wired){s._wired=true;s.addEventListener('input',filterCalendario);}
   filterCalendario();
+  updateGoogleCalUI();   // mostra/atualiza o botão "Conectar Google Agenda"
+  gcalSilentRestore();   // tenta reconectar sem interface (ex.: após F5)
 }
 
 const MONTH_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -948,7 +1009,7 @@ function updateEventoSubFields() {
   document.getElementById('evento-restrito-opts').style.display=val==='restrito'?'block':'none';
 }
 
-function submitEvent() {
+async function submitEvent() {
   const title=document.getElementById('ev-titulo').value.trim(), data=document.getElementById('ev-data').value,
         hora=document.getElementById('ev-hora').value, local=document.getElementById('ev-local').value.trim(),
         categoria=document.getElementById('ev-categoria').value, visib=document.getElementById('evento-visibilidade').value;
@@ -957,10 +1018,11 @@ function submitEvent() {
   const catLabels={'reuniao-interna':'Reunião Interna','reuniao-externa':'Reunião Externa','evento':'Evento'};
   const horaTxt=hora?hora+'h':'', audience=catLabels[categoria]||'';
   const meta=[horaTxt,local||'',audience].filter(Boolean).join(' · ');
+  // Captura os convidados ANTES de fechar o modal (lê as caixas de seleção).
+  const attendees = eventAttendeeEmails(visib);
   const ev={iso:data,...parts,title,meta,visibility:visib,cls:'',category:categoria};
   calendarEvents.push(ev);
   calendarEvents.sort((a,b)=>(a.iso<b.iso?-1:a.iso>b.iso?1:0));
-  if (sbClient) dbCreateEvent(ev,{horaTxt,local,audience}).then(r=>{ if(r) ev.id=r.id; });
   const evAviso={id:avisoIdCounter++,title:`Novo evento: ${title}`,type:'geral',body:`Novo evento adicionado ao calendário: <b>${title}</b> — ${parts.day}/${parts.month}${meta?' · '+meta:''}.`,author:`${currentUser.name} (${currentUser.role})`,time:'Agora',color:'',expiry:null};
   avisos.unshift(evAviso);
   if (sbClient) dbCreateAviso(evAviso).then(r => { if (r) { evAviso.id = r.id; evAviso.time = fmtAvisoTime(r.created_at); } });
@@ -969,6 +1031,278 @@ function submitEvent() {
   if(document.getElementById('cal-list'))renderCalendario();
   if(document.getElementById('avisos-list'))renderAvisos();
   showToast('Evento criado.');
+  // Persistência no banco + sincronização com o Google Agenda (assíncronas; não
+  // travam a UI). A sincronização só roda se o usuário tiver conectado a agenda.
+  let row = null;
+  if (sbClient) { row = await dbCreateEvent(ev,{horaTxt,local,audience}); if(row) ev.id=row.id; }
+  if (googleCalConnected()) {
+    const gid = await syncEventToGoogle(ev, hora, local, attendees);
+    if (gid && ev.id && sbClient) dbUpdateEventGoogleId(ev.id, gid);
+  } else if (googleCalEnabled()) {
+    showToast('Dica: conecte o Google Agenda (no Calendário) para enviar convites por e-mail.');
+  }
+}
+
+// ============== GOOGLE CALENDAR (Fase 5) ==============
+// Integração OPCIONAL e por-usuário: se config.js não tiver `clientId`, tudo
+// aqui é no-op e o app segue normal. Usa o Google Identity Services (GIS) para
+// obter, no navegador, um token da agenda do PRÓPRIO usuário (escopo abaixo).
+// Ao criar um evento, ele é inserido na agenda 'primary' do criador e os
+// participantes entram como convidados (sendUpdates=all → Google envia o convite).
+// Escopos pedidos numa só autorização: criar eventos na agenda + enviar e-mail
+// pelo Gmail do usuário (notificações de aviso). Um consentimento cobre os dois.
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.send';
+let gcalTokenClient = null, gcalToken = null, gcalTokenExpiry = 0, gcalSilentTried = false;
+
+function googleCalEnabled()   { return !!(window.GOOGLE_CONFIG && window.GOOGLE_CONFIG.clientId); }
+function googleCalConnected() { return !!gcalToken && Date.now() < gcalTokenExpiry; }
+
+// Cria (uma vez) o "token client" do GIS. Retorna null se o GIS ainda não
+// carregou ou se a integração está desligada.
+function gcalInitClient() {
+  if (gcalTokenClient || !googleCalEnabled()) return gcalTokenClient;
+  if (!(window.google && google.accounts && google.accounts.oauth2)) return null;
+  gcalTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: window.GOOGLE_CONFIG.clientId, scope: GCAL_SCOPE, callback: () => {},
+  });
+  return gcalTokenClient;
+}
+
+// Pede um token de acesso. prompt:'' = silencioso (sem UI, se já consentiu);
+// prompt:'consent' = força a tela de autorização (1º acesso / reconectar).
+function gcalRequestToken(prompt) {
+  return new Promise((resolve, reject) => {
+    const client = gcalInitClient();
+    if (!client) return reject(new Error('Google Identity Services não carregou.'));
+    client.callback = (resp) => {
+      if (resp && resp.error) return reject(resp);
+      gcalToken = resp.access_token;
+      gcalTokenExpiry = Date.now() + ((resp.expires_in || 3600) - 60) * 1000;
+      resolve(gcalToken);
+    };
+    try { client.requestAccessToken({ prompt: prompt || '' }); } catch (e) { reject(e); }
+  });
+}
+
+async function gcalEnsureToken() {
+  if (googleCalConnected()) return gcalToken;
+  try { return await gcalRequestToken(''); } catch { return null; }
+}
+
+// Botão "Conectar conta Google" — consentimento explícito (Agenda + Gmail).
+async function connectGoogleCalendar(btn) {
+  if (!googleCalEnabled()) { showToast('Integração com o Google ainda não foi configurada.'); return; }
+  const restore = btn ? setBtnLoading(btn) : null;
+  try {
+    await gcalRequestToken('consent');
+    showToast('Conta Google conectada! Eventos na sua agenda e e-mails de aviso habilitados.');
+  } catch (e) {
+    console.warn('Falha ao conectar conta Google:', e);
+    showToast('Não foi possível conectar a conta Google.');
+  } finally { if (restore) restore(); updateGoogleCalUI(); }
+}
+
+// Tenta restaurar a conexão sem interface ao abrir o Calendário (1x por sessão).
+async function gcalSilentRestore() {
+  if (!googleCalEnabled() || googleCalConnected() || gcalSilentTried) { updateGoogleCalUI(); return; }
+  gcalSilentTried = true;
+  try { await gcalRequestToken(''); } catch { /* sem consentimento prévio: ok */ }
+  updateGoogleCalUI();
+}
+
+// Atualiza o rótulo/estilo do botão conforme o estado da conexão.
+// Atualiza TODOS os botões "Conectar conta Google" (Calendário e Avisos). Cada
+// botão declara em data-need a permissão para aparecer (ex.: aviso.create).
+function updateGoogleCalUI() {
+  const on = googleCalConnected();
+  document.querySelectorAll('.google-connect-btn').forEach(btn => {
+    const need = btn.dataset.need;
+    if (!googleCalEnabled() || (need && !can(need))) { btn.style.display = 'none'; return; }
+    btn.style.display = '';
+    btn.textContent = on ? '✓ Conta Google conectada' : '🔗 Conectar conta Google';
+    btn.classList.toggle('btn-ghost', on);
+    btn.classList.toggle('btn-outline', !on);
+  });
+}
+
+// Monta o corpo do evento no formato da Google Calendar API.
+function gcalBuildBody(ev, hora, local, attendees) {
+  const tz = (window.GOOGLE_CONFIG && window.GOOGLE_CONFIG.calendarTimeZone) || 'America/Sao_Paulo';
+  const body = {
+    summary: ev.title, location: local || '',
+    description: 'Criado pela plataforma Portal EJ.',
+    attendees: (attendees || []).map(e => ({ email: e })),
+  };
+  if (hora && /^\d{2}:\d{2}$/.test(hora)) {
+    const [h, m] = hora.split(':').map(Number);
+    const end = `${String((h + 1) % 24).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    body.start = { dateTime: `${ev.iso}T${hora}:00`, timeZone: tz };
+    body.end   = { dateTime: `${ev.iso}T${end}:00`,  timeZone: tz };
+  } else {
+    // Sem horário → evento de dia inteiro (end é exclusivo = dia seguinte).
+    const d = new Date(ev.iso + 'T00:00:00'); d.setDate(d.getDate() + 1);
+    body.start = { date: ev.iso };
+    body.end   = { date: d.toISOString().slice(0, 10) };
+  }
+  return body;
+}
+
+// Insere o evento na agenda do criador e dispara os convites. Retorna o id do
+// evento no Google (ou null em falha). É "best-effort": nunca quebra o app.
+async function syncEventToGoogle(ev, hora, local, attendees) {
+  if (!googleCalEnabled()) return null;
+  const token = await gcalEnsureToken();
+  if (!token) { updateGoogleCalUI(); return null; }
+  try {
+    const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(gcalBuildBody(ev, hora, local, attendees)),
+    });
+    if (!res.ok) {
+      if (res.status === 401) { gcalToken = null; updateGoogleCalUI(); showToast('Sessão do Google expirou — reconecte o Google Agenda.'); return null; }
+      console.warn('Google Calendar erro:', res.status, await res.text());
+      showToast('Evento criado, mas falhou ao enviar ao Google Agenda.');
+      return null;
+    }
+    const j = await res.json();
+    const n = (attendees || []).length;
+    showToast(n ? `Evento no seu Google Agenda — ${n} convidado(s) notificado(s).` : 'Evento adicionado ao seu Google Agenda.');
+    return j.id || null;
+  } catch (e) {
+    console.warn('Falha ao sincronizar com o Google:', e);
+    showToast('Evento criado, mas a sincronização com o Google falhou.');
+    return null;
+  }
+}
+
+// Resolve os e-mails dos convidados conforme a visibilidade do evento.
+// geral = todos; trainee/diretoria = por cargo; setorial = setores marcados;
+// restrito = membros marcados. Exclui o próprio criador (vira organizador) e
+// ignora membros inativos.
+function eventAttendeeEmails(visibility) {
+  const meEmail = currentUser ? memberEmail(currentUser) : '';
+  const active = members.filter(m => (m.status || 'Ativo') !== 'Inativo');
+  let list = [];
+  if (visibility === 'geral')          list = active;
+  else if (visibility === 'trainee')   list = active.filter(m => m.role === 'Trainee');
+  else if (visibility === 'diretoria') list = active.filter(m => m.role === 'Presidente' || m.role === 'Diretor');
+  else if (visibility === 'setorial') {
+    const sectors = gcalCheckedValues('evento-setorial-list');
+    list = active.filter(m => sectors.includes(m.sector));
+  } else if (visibility === 'restrito') {
+    return gcalCheckedValues('evento-restrito-list').filter(e => e && e.toLowerCase() !== meEmail);
+  }
+  return [...new Set(list.map(memberEmail))].filter(e => e && e !== meEmail);
+}
+
+function gcalCheckedValues(containerId) {
+  const box = document.getElementById(containerId); if (!box) return [];
+  return [...box.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value).filter(Boolean);
+}
+
+// Preenche a lista de "Restrito" com os membros REAIS (valor = e-mail). O modal
+// vinha com nomes fixos do seed; aqui passa a refletir o banco.
+function populateEventoMembros() {
+  const box = document.getElementById('evento-restrito-list'); if (!box) return;
+  const meEmail = currentUser ? memberEmail(currentUser) : '';
+  const list = members.filter(m => (m.status || 'Ativo') !== 'Inativo' && memberEmail(m) !== meEmail)
+                      .sort((a, b) => a.name.localeCompare(b.name));
+  box.innerHTML = list.length
+    ? list.map(m => `<label class="check-label"><input type="checkbox" value="${gesc(memberEmail(m))}" /> ${gesc(m.name)}</label>`).join('')
+    : '<div class="u-muted text-13">Nenhum outro membro disponível.</div>';
+}
+
+async function dbUpdateEventGoogleId(rowId, gid) {
+  if (!sbClient || !rowId || !gid) return;
+  const { error } = await sbClient.from('calendar_events').update({ google_event_id: gid }).eq('id', rowId);
+  if (error) console.warn('dbUpdateEventGoogleId', error.message);
+}
+
+// ============== NOTIFICAÇÃO DE AVISO POR E-MAIL (Fase 5) ==============
+// Envia o aviso por e-mail PELA conta Google do próprio autor (Gmail API,
+// escopo gmail.send já incluído na conexão). Best-effort: nunca quebra o app.
+
+// base64 seguro p/ UTF-8 (acentos) e variante base64url (exigida pela Gmail API).
+function b64utf8(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+function b64urlUtf8(str) { return b64utf8(str).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+
+// Monta a mensagem MIME (HTML, UTF-8) e devolve em base64url para o campo `raw`.
+function gmailBuildRaw({ to, bcc, subject, html }) {
+  const mime = [
+    to ? `To: ${to}` : '',
+    bcc ? `Bcc: ${bcc}` : '',
+    `Subject: =?UTF-8?B?${b64utf8(subject)}?=`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/html; charset="UTF-8"',
+    'Content-Transfer-Encoding: base64',
+    '',
+    b64utf8(html),
+  ].filter(Boolean).join('\r\n');
+  return b64urlUtf8(mime);
+}
+
+async function gmailSend({ to, bcc, subject, html }) {
+  if (!googleCalEnabled()) return false;
+  const token = await gcalEnsureToken();
+  if (!token) return false;
+  try {
+    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw: gmailBuildRaw({ to, bcc, subject, html }) }),
+    });
+    if (res.status === 401 || res.status === 403) {
+      gcalToken = null; updateGoogleCalUI();
+      showToast('Reconecte sua conta Google para liberar o envio de e-mail.');
+      return false;
+    }
+    if (!res.ok) { console.warn('Gmail erro:', res.status, await res.text()); return false; }
+    return true;
+  } catch (e) { console.warn('Falha ao enviar e-mail:', e); return false; }
+}
+
+// HTML do e-mail de aviso (corpo sanitizado com gsafe, igual ao render na tela).
+function avisoEmailHtml(novo) {
+  const company = localStorage.getItem('company_name') || 'Portal EJ';
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto">
+    <h2 style="color:#1d4ed8;margin:0 0 10px">${gesc(novo.title)}</h2>
+    <div style="font-size:15px;color:#222;line-height:1.55">${gsafe(novo.body)}</div>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:18px 0">
+    <div style="font-size:12px;color:#888">Enviado por ${gesc(novo.author)} pela plataforma ${gesc(company)}.</div>
+  </div>`;
+}
+
+// Destinatários de um aviso conforme o "Alcance": geral=todos; trainee=trainees;
+// setorial=setores marcados; direcionado=membros marcados. Exclui o autor e inativos.
+function avisoRecipientEmails(alcance) {
+  const meEmail = currentUser ? memberEmail(currentUser) : '';
+  const active = members.filter(m => (m.status || 'Ativo') !== 'Inativo');
+  let list = [];
+  if (alcance === 'geral')         list = active;
+  else if (alcance === 'trainee')  list = active.filter(m => m.role === 'Trainee');
+  else if (alcance === 'setorial') {
+    const sectors = gcalCheckedValues('aviso-setorial-list');
+    list = active.filter(m => sectors.includes(m.sector));
+  } else if (alcance === 'direcionado') {
+    return gcalCheckedValues('aviso-direcionado-list').filter(e => e && e.toLowerCase() !== meEmail);
+  }
+  return [...new Set(list.map(memberEmail))].filter(e => e && e !== meEmail);
+}
+
+// Preenche a lista de "Direcionado" com os membros REAIS (valor = e-mail).
+function populateAvisoMembros() {
+  const box = document.getElementById('aviso-direcionado-list'); if (!box) return;
+  const meEmail = currentUser ? memberEmail(currentUser) : '';
+  const list = members.filter(m => (m.status || 'Ativo') !== 'Inativo' && memberEmail(m) !== meEmail)
+                      .sort((a, b) => a.name.localeCompare(b.name));
+  box.innerHTML = list.length
+    ? list.map(m => `<label class="check-label"><input type="checkbox" value="${gesc(memberEmail(m))}" /> ${gesc(m.name)}</label>`).join('')
+    : '<div class="u-muted text-13">Nenhum outro membro disponível.</div>';
 }
 
 // ============== PROJETOS ==============
@@ -1022,7 +1356,7 @@ function renderProjectDetail() {
       +(canManage?`<div class="card-footer"><button class="btn btn-outline" style="font-size:12px;width:100%;" onclick="openManageMembers()">👥 Gerenciar membros</button></div>`:'');
   }
   const tasksEl=document.getElementById('proj-tasks');
-  if(tasksEl) tasksEl.innerHTML=p.tasks.length===0?'<tr><td colspan="5" style="color:var(--gray-500);padding:12px;">Nenhuma tarefa cadastrada.</td></tr>'
+  if(tasksEl) tasksEl.innerHTML=p.tasks.length===0?'<tr><td colspan="5" class="td-empty">Nenhuma tarefa cadastrada.</td></tr>'
     :p.tasks.map((t,i)=>{
       const s=calcTaskStatus(t);
       const startLabel=t.startISO?(()=>{const[y,m,d]=t.startISO.split('-');return`${d}/${m} → `;})():'';
@@ -1248,6 +1582,13 @@ function parseDateStr(str) {
 function fmtDM(d)  { return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; }
 function fmtDMY(d) { return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
 function gesc(s)   { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+// Sanitiza HTML "rico" (corpo de aviso): escapa TUDO e depois reabilita só um punhado
+// de tags de formatação inofensivas. Assim um aviso com <img src=x onerror=...> ou
+// <script> fica neutralizado (a tag continua escapada), mas <b>/<i>/<br> funcionam.
+// É a defesa contra XSS armazenado — qualquer Membro+ pode criar aviso.
+function gsafe(html) {
+  return gesc(html).replace(/&lt;(\/?(?:b|i|em|strong|u|br|p))\s*\/?&gt;/gi, '<$1>');
+}
 // Atualização 9: serializa um valor para uso como ARGUMENTO de função dentro de onclick="...".
 // Usa JSON.stringify (escapa aspas/quebras) + encode de " para &quot; (compatível com atributo HTML).
 function jsArg(s)  { return JSON.stringify(String(s)).replace(/"/g, '&quot;'); }
@@ -1642,7 +1983,7 @@ function renderTrainees() {
     const pontuadas = activities.filter(a => !a.mandatory);
     const top = pontuadas.slice(0, 10);
     if (top.length === 0) {
-      activEl.innerHTML = '<tr><td colspan="2" style="color:var(--gray-500);padding:12px;">Nenhuma atividade.</td></tr>';
+      activEl.innerHTML = '<tr><td colspan="2" class="td-empty">Nenhuma atividade.</td></tr>';
       return;
     }
     activEl.innerHTML = top.map(a => {
@@ -2369,11 +2710,29 @@ function submitAddMembro() {
     : `${nome} adicionado como ${cargo}. (Login ativado pelo admin.)`);
 }
 
+// Modo noturno: alterna a classe `dark` no <html> e persiste no navegador.
+// O <head> aplica o estado salvo antes do CSS pintar (anti-flash); aqui só
+// tratamos o clique no toggle e o rótulo. Independente do tema de COR.
+function toggleDarkMode(on) {
+  document.documentElement.classList.toggle('dark', !!on);
+  localStorage.setItem('theme_dark', on ? '1' : '0');
+  const label = document.getElementById('cfg-dark-label');
+  if (label) label.textContent = on ? 'Ativado' : 'Desativado';
+}
+
 function renderConfiguracoes() {
   // Atualização 9.1: a lista de membros saiu daqui (mora na página Membros).
   // Pré-preenche o campo de nome da empresa com o valor atual.
   const cn = document.getElementById('cfg-company-name');
   if (cn) cn.value = (document.querySelector('.brand-name')?.textContent || 'Integre Jr').trim();
+  // Reflete o estado atual do modo noturno no toggle.
+  const darkToggle = document.getElementById('cfg-dark-toggle');
+  if (darkToggle) {
+    const on = document.documentElement.classList.contains('dark');
+    darkToggle.checked = on;
+    const dl = document.getElementById('cfg-dark-label');
+    if (dl) dl.textContent = on ? 'Ativado' : 'Desativado';
+  }
   // Sincroniza input HEX texto ↔ color
   const hexInput = document.getElementById('theme-hex-input');
   const hexText  = document.getElementById('theme-hex-text');
@@ -2454,7 +2813,7 @@ function renderMembros() {
   // têm acesso à página) veem em modo somente-leitura.
   const canEditMembers = can('membros.edit');
   tbody.innerHTML = rows.length === 0
-    ? '<tr><td colspan="6" style="color:var(--gray-500);padding:12px;">Nenhum membro encontrado.</td></tr>'
+    ? '<tr><td colspan="6" class="td-empty">Nenhum membro encontrado.</td></tr>'
     : rows.map(m => {
         const gi = members.indexOf(m);
         const isSelf = m.name === currentUser.name;
@@ -2613,7 +2972,7 @@ function openEditarTopicos() {
 function renderTopicosEditor() {
   const list = document.getElementById('cap-topicos-list'); if (!list) return;
   const entries = Object.entries(capTree);
-  if (entries.length === 0) { list.innerHTML = '<div style="color:var(--gray-500);font-size:13px;">Nenhum tópico.</div>'; return; }
+  if (entries.length === 0) { list.innerHTML = '<div class="u-muted text-13">Nenhum tópico.</div>'; return; }
   list.innerHTML = entries.map(([key, col]) => {
     const qtd = (col.tracks || []).reduce((acc, t) => acc + t.length, 0);
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--gray-100);border-radius:6px;">
@@ -3271,20 +3630,23 @@ function showAuthView(name) {
 }
 
 // ---- Ações de login ----
-async function doLogin() {
+async function doLogin(btn) {
   const email = (document.getElementById('login-email')?.value || '').trim().toLowerCase();
   const pw    =  document.getElementById('login-password')?.value || '';
   if (!email || !pw) { authError('login-error', 'Preencha e-mail e senha.'); return; }
-  const r = await AuthProvider.verify(email, pw);
-  if (!r.ok) { authError('login-error', r.error); return; }
-  if (r.isDefault) {  // 1º acesso com a senha padrão → força criar senha pessoal
-    pendingFirstLoginEmail = email;
-    const a = document.getElementById('setpw-new'), b = document.getElementById('setpw-confirm');
-    if (a) a.value = ''; if (b) b.value = '';
-    showAuthView('setpw');
-    return;
-  }
-  enterApp(email);
+  const restore = setBtnLoading(btn);   // spinner no botão enquanto verifica (rede)
+  try {
+    const r = await AuthProvider.verify(email, pw);
+    if (!r.ok) { authError('login-error', r.error); return; }
+    if (r.isDefault) {  // 1º acesso com a senha padrão → força criar senha pessoal
+      pendingFirstLoginEmail = email;
+      const a = document.getElementById('setpw-new'), b = document.getElementById('setpw-confirm');
+      if (a) a.value = ''; if (b) b.value = '';
+      showAuthView('setpw');
+      return;
+    }
+    await enterApp(email);
+  } finally { restore(); }
 }
 
 async function submitFirstPassword() {
@@ -3844,9 +4206,17 @@ async function enterApp(email) {
   setSession(email);
   setCurrentUserFromMember(m);                // define currentUser ANTES das cargas (loadCapsFromDB lê o progresso dele)
   if (sbClient) {  // Fase 2: domínio vem do banco
-    await loadProjectsFromDB(); await loadAvisosFromDB(); await loadMetasFromDB();
-    await loadCalendarFromDB(); await loadDriveFromDB(); await loadLegadoFromDB(); await loadInstitutionalFromDB();
-    await loadCapsFromDB(); await loadActivitiesFromDB(); await loadValidationsFromDB(); await loadPontoFromDB();
+    // As cargas são independentes (cada uma popula seu próprio array a partir de
+    // `members`, já carregado acima), então rodam EM PARALELO — bem mais rápido
+    // que os ~11 awaits sequenciais de antes. O overlay cobre a espera.
+    showAppLoading('Carregando seus dados…');
+    try {
+      await Promise.all([
+        loadProjectsFromDB(), loadAvisosFromDB(), loadMetasFromDB(),
+        loadCalendarFromDB(), loadDriveFromDB(), loadLegadoFromDB(), loadInstitutionalFromDB(),
+        loadCapsFromDB(), loadActivitiesFromDB(), loadValidationsFromDB(), loadPontoFromDB(),
+      ]);
+    } finally { hideAppLoading(); }
   }
   hideLogin();
   const pwf = document.getElementById('login-password'); if (pwf) pwf.value = '';  // não deixa a senha no DOM
@@ -3864,21 +4234,30 @@ async function logout() {
 }
 
 // Decide, no boot, se mostra o login ou entra direto (sessão válida).
+// A splash de abertura fica no ar até esta decisão terminar (await enterApp),
+// então só revela o dashboard OU o login já no estado final — sem piscar a tela.
 async function authBoot() {
-  if (sbClient) {
-    // Sessão gerenciada pelo Supabase (persistida automaticamente).
-    // enterApp hidrata os membros do banco e valida o e-mail por lá.
-    const { data } = await sbClient.auth.getSession();
-    const email = data?.session?.user?.email?.toLowerCase();
-    if (email) enterApp(email);
-    else showLogin();
-    return;
+  try {
+    if (sbClient) {
+      // Sessão gerenciada pelo Supabase (persistida automaticamente).
+      // enterApp hidrata os membros do banco e valida o e-mail por lá.
+      const { data } = await sbClient.auth.getSession();
+      const email = data?.session?.user?.email?.toLowerCase();
+      if (email) await enterApp(email);
+      else showLogin();
+    } else {
+      // Fallback local (protótipo offline).
+      const s = getSession();
+      if (s && members.some(m => memberEmail(m) === s.email)) await enterApp(s.email);
+      else { clearSession(); showLogin(); }
+      ensureCredentials();   // garante senha padrão p/ todo mundo (em background)
+    }
+  } catch (e) {
+    console.warn('authBoot falhou — mostrando login:', e);
+    showLogin();
+  } finally {
+    hideBootSplash();        // só agora a splash some, revelando o estado final
   }
-  // Fallback local (protótipo offline).
-  const s = getSession();
-  if (s && members.some(m => memberEmail(m) === s.email)) enterApp(s.email);
-  else { clearSession(); showLogin(); }
-  ensureCredentials();   // garante senha padrão p/ todo mundo (em background)
 }
 
 // ============== PERSISTÊNCIA (localStorage) — Atualização 8 ==============

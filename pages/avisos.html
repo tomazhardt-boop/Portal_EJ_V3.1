@@ -3,7 +3,13 @@
     <h1>Avisos</h1>
     <div class="subtitle">Comunicados internos da empresa.</div>
   </div>
-  <button class="btn btn-primary" onclick="openNewAviso()">+ Novo aviso</button>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <!-- Conectar conta Google (Fase 5): habilita notificar avisos por e-mail.
+         Só aparece se config.js tiver clientId e o usuário puder criar avisos. -->
+    <button class="btn btn-outline google-connect-btn" data-need="aviso.create"
+            onclick="connectGoogleCalendar(this)" style="display:none;">🔗 Conectar conta Google</button>
+    <button class="btn btn-primary" onclick="openNewAviso()">+ Novo aviso</button>
+  </div>
 </div>
 
 <div class="card">
