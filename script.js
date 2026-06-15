@@ -245,6 +245,7 @@ async function goTo(page, opts = {}) {
     const response = await fetch(`pages/${page}.html`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     contentEl.innerHTML = await response.text();
+    applyModuleVisibility(contentEl);   // esconde blocos de módulos desligados
     document.querySelectorAll('.nav-item').forEach(n => { n.classList.remove('active'); n.removeAttribute('aria-current'); });
     const navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
     if (navItem) { navItem.classList.add('active'); navItem.setAttribute('aria-current', 'page'); }
@@ -550,9 +551,10 @@ function colAccess(page, u = currentUser) {
 
 // --- Feature-flags (módulos vendáveis por EJ) ---
 // Núcleo: páginas que NUNCA desligam (login não é página). Independem de config.
-const CORE_PAGES = ['dashboard', 'perfil', 'membros', 'configuracoes', 'atividades'];
-// Páginas internas (fora da sidebar) herdam o módulo do "pai".
-const MODULE_OF = { 'projeto-detalhe': 'projetos', 'legado-todos': 'legado' };
+const CORE_PAGES = ['dashboard', 'perfil', 'membros', 'configuracoes'];
+// Páginas internas (fora da sidebar) herdam o módulo do "pai". 'atividades' é a
+// pontuação dos trainees (só se chega por Trainees) → pertence ao módulo trainees.
+const MODULE_OF = { 'projeto-detalhe': 'projetos', 'legado-todos': 'legado', 'atividades': 'trainees' };
 // O módulo de uma página está ativo? Núcleo sempre sim; flag ausente = ativo
 // (não quebra páginas internas sem flag própria).
 function moduleEnabled(page) {
@@ -560,6 +562,17 @@ function moduleEnabled(page) {
   const flags = window.MODULES || {};
   const mod = MODULE_OF[page] || page;
   return flags[mod] !== false;
+}
+
+// Esconde QUALQUER elemento marcado com data-module="x" cujo módulo esteja off.
+// Generaliza os feature-flags para todas as páginas: blocos/cards/botões/links
+// acoplados a um módulo opcional levam data-module e somem quando ele é
+// desligado — assim qualquer combinação de módulos fica coerente. Só ESCONDE
+// (nunca reexibe), para não atropelar ocultações por permissão de cargo.
+function applyModuleVisibility(root = document) {
+  root.querySelectorAll('[data-module]').forEach(el => {
+    if (!moduleEnabled(el.dataset.module)) el.style.display = 'none';
+  });
 }
 
 // Vê a página = módulo ativo E cargo com acesso (não-'none'). Cobre sidebar
@@ -667,10 +680,7 @@ function updateTopbarAvatar() {
 
 // ============== DASHBOARD ==============
 function renderDashboard() {
-  // Feature-flags: esconde os cards de módulos desligados (data-module no HTML).
-  document.querySelectorAll('#content [data-module]').forEach(el => {
-    el.style.display = moduleEnabled(el.dataset.module) ? '' : 'none';
-  });
+  applyModuleVisibility();   // feature-flags: esconde cards de módulos desligados
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   set('dash-projetos-val', projects.filter(p => !p.concluded).length);
   set('dash-membros-val',  members.filter(m => m.status === 'Ativo').length);
@@ -732,9 +742,19 @@ function renderDashboard() {
 function openMemberProfile(name) {
   const m = members.find(x => x.name === name);
   if (!m) return;
-  const active    = projects.filter(p => p.memberNames.includes(name) && !p.concluded);
-  const concluded = projects.filter(p => p.memberNames.includes(name) && p.concluded);
+  // Feature-flags: este modal abre a partir da lista de membros (núcleo), então
+  // os tiles de projetos/capacitações/trainee só entram se o módulo estiver on.
+  const showProj = moduleEnabled('projetos');
+  const active    = showProj ? projects.filter(p => p.memberNames.includes(name) && !p.concluded) : [];
+  const concluded = showProj ? projects.filter(p => p.memberNames.includes(name) && p.concluded) : [];
   const t = m.role === 'Trainee' ? m : null; // pontos vivem no próprio membro agora
+  const tiles = [];
+  if (showProj) {
+    tiles.push(`<div class="stat-tile"><div class="st-num">${active.length}</div><div class="st-label">Projetos ativos</div></div>`);
+    tiles.push(`<div class="stat-tile green"><div class="st-num">${concluded.length}</div><div class="st-label">Concluídos</div></div>`);
+  }
+  if (t && moduleEnabled('trainees'))      tiles.push(`<div class="stat-tile amber"><div class="st-num">${t.points}</div><div class="st-label">Pts trainee</div></div>`);
+  else if (moduleEnabled('capacitacoes'))  tiles.push(`<div class="stat-tile"><div class="st-num">${m.capsCount || 0}</div><div class="st-label">Capacitações</div></div>`);
   const content = `
     <div class="profile-head">
       <div class="avatar lg">${initials(name)}</div>
@@ -745,20 +765,8 @@ function openMemberProfile(name) {
         <div class="u-muted-soft text-sm">Entrou em ${gesc(m.entryDate || '—')}</div>
       </div>
     </div>
-    <div class="profile-stats">
-      <div class="stat-tile">
-        <div class="st-num">${active.length}</div>
-        <div class="st-label">Projetos ativos</div>
-      </div>
-      <div class="stat-tile green">
-        <div class="st-num">${concluded.length}</div>
-        <div class="st-label">Concluídos</div>
-      </div>
-      ${t
-        ? `<div class="stat-tile amber"><div class="st-num">${t.points}</div><div class="st-label">Pts trainee</div></div>`
-        : `<div class="stat-tile"><div class="st-num">${m.capsCount || 0}</div><div class="st-label">Capacitações</div></div>`}
-    </div>
-    ${active.length > 0 ? `
+    ${tiles.length ? `<div class="profile-stats">${tiles.join('')}</div>` : ''}
+    ${showProj && active.length > 0 ? `
       <div class="section-label">Projetos em andamento</div>
       <div class="u-col gap-6">
         ${active.map(p=>`<div class="mini-list-row"><b>${gesc(p.name)}</b><span class="tag">${gesc(p.sector)}</span></div>`).join('')}
@@ -4354,6 +4362,7 @@ async function enterApp(email) {
   const pwf = document.getElementById('login-password'); if (pwf) pwf.value = '';  // não deixa a senha no DOM
   protoInit();                  // atualiza chip do topbar + select do Modo Protótipo
   applySidebarPermissions();    // mostra só as páginas permitidas para o cargo
+  applyModuleVisibility();      // esconde modais/blocos estáticos de módulos off
   goTo(DEFAULT_PAGE);
 }
 
