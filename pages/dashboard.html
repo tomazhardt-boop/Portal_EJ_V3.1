@@ -7,7 +7,7 @@
 </div>
 
 <div class="grid cols-4 mb-24">
-  <div class="stat-card">
+  <div class="stat-card" data-module="projetos">
     <div class="label">Projetos ativos</div>
     <div class="value" id="dash-projetos-val">—</div>
   </div>
@@ -16,18 +16,18 @@
     <div class="value" id="dash-membros-val">—</div>
     <div class="delta" id="dash-trainees-val"></div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card" data-module="capacitacoes">
     <div class="label">Capacitações ativas</div>
     <div class="value" id="dash-caps-val">—</div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card" data-module="calendario">
     <div class="label">Reuniões na semana</div>
     <div class="value" id="dash-reunioes-val">—</div>
   </div>
 </div>
 
 <div class="grid cols-2">
-  <div class="card">
+  <div class="card" data-module="avisos">
     <div class="card-title">
       Avisos recentes
       <a class="btn btn-ghost text-sm" onclick="goTo('avisos')">Ver todos</a>
@@ -35,7 +35,7 @@
     <div id="dash-avisos"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-module="calendario">
     <div class="card-title">
       Próximos eventos
       <a class="btn btn-ghost text-sm" onclick="goTo('calendario')">Ver todos</a>
@@ -43,7 +43,7 @@
     <div id="dash-eventos"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-module="projetos">
     <div class="card-title">
       Projetos em andamento
       <a class="btn btn-ghost text-sm" onclick="goTo('projetos')">Ver todos</a>
@@ -54,7 +54,7 @@
     </table>
   </div>
 
-  <div class="card">
+  <div class="card" data-module="trainees">
     <div class="card-title">
       Top trainees
       <a class="btn btn-ghost text-sm" onclick="goTo('trainees')">Ver ranking</a>
@@ -63,7 +63,7 @@
   </div>
 </div>
 
-<div class="card mt-24">
+<div class="card mt-24" data-module="metas">
   <div class="card-title">
     Progresso das Metas
     <a class="btn btn-ghost text-sm" onclick="goTo('metas')">Ver metas</a>

@@ -23,3 +23,32 @@ window.GOOGLE_CONFIG = {
   companyDomain: 'integrejr.com.br',     // domínio do Workspace da EJ
   calendarTimeZone: 'America/Sao_Paulo', // fuso usado nos eventos
 };
+
+// ============================================================================
+// Módulos da plataforma (feature-flags) — específico de CADA EJ.
+// ----------------------------------------------------------------------------
+// Liga/desliga páginas inteiras SEM mexer no código. Um módulo em `false`
+// SOME da barra lateral e fica inacessível por navegação direta (cai no
+// dashboard). É assim que a plataforma é vendida em pacotes: a mesma base de
+// código serve todas as EJs — muda só este objeto. NUNCA recortar/apagar
+// páginas por cliente (forks viram pesadelo de manutenção).
+//
+// NÚCLEO (sempre ativo, não tem flag aqui): login, dashboard, perfil, membros,
+// configurações. Esses não desligam.
+//
+// A integração Google (Calendário/e-mail) se autodesliga sozinha quando o
+// `clientId` acima está vazio — é independente destas flags.
+// ============================================================================
+window.MODULES = {
+  avisos:       true,
+  calendario:   true,
+  ponto:        true,
+  projetos:     true,
+  capacitacoes: true,
+  trainees:     true,
+  rnn:          true,
+  legado:       true,
+  drive:        true,
+  contratos:    true,
+  metas:        true,
+};

@@ -547,7 +547,24 @@ function colAccess(page, u = currentUser) {
   const row = COL_ACCESS[profileKey(u)] || COL_ACCESS['membro'];
   return row[col] || 'none';
 }
-function canSeePage(page, u = currentUser) { return colAccess(page, u) !== 'none'; }
+
+// --- Feature-flags (módulos vendáveis por EJ) ---
+// Núcleo: páginas que NUNCA desligam (login não é página). Independem de config.
+const CORE_PAGES = ['dashboard', 'perfil', 'membros', 'configuracoes', 'atividades'];
+// Páginas internas (fora da sidebar) herdam o módulo do "pai".
+const MODULE_OF = { 'projeto-detalhe': 'projetos', 'legado-todos': 'legado' };
+// O módulo de uma página está ativo? Núcleo sempre sim; flag ausente = ativo
+// (não quebra páginas internas sem flag própria).
+function moduleEnabled(page) {
+  if (CORE_PAGES.includes(page)) return true;
+  const flags = window.MODULES || {};
+  const mod = MODULE_OF[page] || page;
+  return flags[mod] !== false;
+}
+
+// Vê a página = módulo ativo E cargo com acesso (não-'none'). Cobre sidebar
+// (applySidebarPermissions) e o guard de navegação (goTo) de uma vez só.
+function canSeePage(page, u = currentUser) { return moduleEnabled(page) && colAccess(page, u) !== 'none'; }
 function pageMode(page, u = currentUser) {
   const a = colAccess(page, u);
   return a === 'edit' ? 'edit' : (a === 'none' ? 'none' : 'view'); // 'cond' conta como view (lista de projetos)
@@ -650,6 +667,10 @@ function updateTopbarAvatar() {
 
 // ============== DASHBOARD ==============
 function renderDashboard() {
+  // Feature-flags: esconde os cards de módulos desligados (data-module no HTML).
+  document.querySelectorAll('#content [data-module]').forEach(el => {
+    el.style.display = moduleEnabled(el.dataset.module) ? '' : 'none';
+  });
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   set('dash-projetos-val', projects.filter(p => !p.concluded).length);
   set('dash-membros-val',  members.filter(m => m.status === 'Ativo').length);
