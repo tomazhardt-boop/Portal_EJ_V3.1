@@ -173,8 +173,8 @@ let rnnTabAtivo = 'rnn';
 // ============== METAS ==============
 let metas = {
   faturamento: { label:'Faturamento Mensal',          prefixo:'R$', sufixo:'',  meta:15000, atual:8500  },
-  colabs:      { label:'Projetos em Colaboração',     prefixo:'',   sufixo:' colabs', meta:3, atual:1 },
-  engajamento: { label:'Engajamento dos Membros',     prefixo:'',   sufixo:'',  meta:80,    atual:65    },
+  colabs:      { label:'Faturamento em Colaboração',  prefixo:'R$', sufixo:'',  meta:30000, atual:5000  },
+  engajamento: { label:'Engajamento dos Membros',     prefixo:'',   sufixo:'%', meta:80,    atual:65    },
 };
 let metaEditando = null;
 
@@ -195,27 +195,27 @@ function syncFaturamentoFromAnual() {
 
 // ============== CAPACITAÇÕES TREE ==============
 let capTree = {
-  programacao:  { label:'Programação',    emoji:'💻', tracks:[
+  programacao:  { label:'Programação',    emoji:'', tracks:[
     [{ name:'HTML básico',     done:true }, { name:'CSS básico',        done:true  }, { name:'JavaScript',     done:true  }, { name:'React',                    done:false }],
     [{ name:'Sites estáticos', done:true }, { name:'Sites interativos', done:true  }],
   ]},
-  financeiro:   { label:'Financeiro',     emoji:'💰', tracks:[
+  financeiro:   { label:'Financeiro',     emoji:'', tracks:[
     [{ name:'Excel básico',    done:true }, { name:'Excel avançado',    done:true  }],
     [{ name:'Power BI básico', done:false }],
   ]},
-  marketing:    { label:'Marketing',      emoji:'📣', tracks:[
+  marketing:    { label:'Marketing',      emoji:'', tracks:[
     [{ name:'Comunicação',     done:true }, { name:'Atendimento ao cliente', done:true }, { name:'Vendas', done:true }],
     [],
   ]},
-  administracao:{ label:'Administração',  emoji:'📋', tracks:[
+  administracao:{ label:'Administração',  emoji:'', tracks:[
     [{ name:'Gestão de tempo', done:true }, { name:'Gestão de projetos', done:true }],
     [{ name:'Liderança',       done:true }],
   ]},
-  gerencia:     { label:'Gerência',       emoji:'🏆', tracks:[
+  gerencia:     { label:'Gerência',       emoji:'', tracks:[
     [{ name:'Gestão de Projetos com Notion', done:false }],
     [],
   ]},
-  prototipagem: { label:'Prototipagem',   emoji:'🔧', tracks:[[], []] },
+  prototipagem: { label:'Prototipagem',   emoji:'', tracks:[[], []] },
 };
 let capAddTarget = { col: null, track: 0 };
 
@@ -223,12 +223,12 @@ let capAddTarget = { col: null, track: 0 };
 // Tópicos = botões que levam a uma pasta/arquivo no Google Drive. Quem pode
 // editar a plataforma adiciona/remove/renomeia tópicos e troca os links.
 let driveTopics = [
-  { id:1, name:'Planilhas Financeiras',     icon:'📊', link:'' },
-  { id:2, name:'Materiais de Capacitações', icon:'🎓', link:'' },
+  { id:1, name:'Planilhas Financeiras',     icon:'📁', link:'' },
+  { id:2, name:'Materiais de Capacitações', icon:'📁', link:'' },
   { id:3, name:'Projetos Antigos',          icon:'📁', link:'' },
-  { id:4, name:'Templates Internos',        icon:'📝', link:'' },
-  { id:5, name:'Identidade Visual',         icon:'🎨', link:'' },
-  { id:6, name:'Documentos Jurídicos',      icon:'⚖️', link:'' },
+  { id:4, name:'Templates Internos',        icon:'📁', link:'' },
+  { id:5, name:'Identidade Visual',         icon:'📁', link:'' },
+  { id:6, name:'Documentos Jurídicos',      icon:'📁', link:'' },
 ];
 let driveTopicIdCounter = 7;
 
@@ -383,7 +383,7 @@ function updateAnualLive(monthIdx, val) {
 function openAddCap(colKey, trackIdx) {
   capAddTarget = { col: colKey, track: trackIdx };
   document.getElementById('new-cap-col-label').textContent =
-    `${capTree[colKey]?.emoji} ${capTree[colKey]?.label} — Trilha ${trackIdx + 1}`;
+    `${capTree[colKey]?.label} — Trilha ${trackIdx + 1}`;
   document.getElementById('new-cap-name').value = '';
   document.getElementById('new-cap-link').value = '';
   document.getElementById('modal-add-cap').classList.add('active');
@@ -720,8 +720,8 @@ function openMemberProfile(name) {
       <div>
         <h3>${gesc(name)}</h3>
         <div class="u-muted text-13 mt-2">${gesc(m.role)} · ${gesc(m.sector)}</div>
-        <div class="u-muted-soft text-sm mt-2">📚 ${gesc(m.course || '—')}</div>
-        <div class="u-muted-soft text-sm">📅 Entrou em ${gesc(m.entryDate || '—')}</div>
+        <div class="u-muted-soft text-sm mt-2">${gesc(m.course || '—')}</div>
+        <div class="u-muted-soft text-sm">Entrou em ${gesc(m.entryDate || '—')}</div>
       </div>
     </div>
     <div class="profile-stats">
@@ -751,9 +751,9 @@ function renderPerfil() {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   set('perfil-name',        currentUser.name);
   set('perfil-role',        `${currentUser.role} · ${currentUser.sector}`);
-  set('perfil-email-text',  '📧 ' + currentUser.email);
-  set('perfil-date-text',   '📅 Entrou em ' + currentUser.entryDate);
-  set('perfil-course-text', '📚 ' + currentUser.course);
+  set('perfil-email-text',  currentUser.email);
+  set('perfil-date-text',   'Entrou em ' + currentUser.entryDate);
+  set('perfil-course-text', currentUser.course);
   set('perfil-cap-count',   currentUser.caps.length);
   const av = document.getElementById('perfil-avatar');
   if (av) {
@@ -768,7 +768,7 @@ function renderPerfil() {
     if (currentUser.role === 'Trainee' && currentUser.padrinho) {
       const p = members.find(m => m.name === currentUser.padrinho);
       const extra = p ? ` · ${gesc(p.sector)} · ${gesc(memberEmail(p))}` : '';
-      padEl.innerHTML = `🤝 Padrinho: <b>${gesc(currentUser.padrinho)}</b>${extra}`;
+      padEl.innerHTML = `Padrinho: <b>${gesc(currentUser.padrinho)}</b>${extra}`;
       padEl.style.display = '';
     } else {
       padEl.style.display = 'none';
@@ -1052,10 +1052,34 @@ async function submitEvent() {
 // Escopos pedidos numa só autorização: criar eventos na agenda + enviar e-mail
 // pelo Gmail do usuário (notificações de aviso). Um consentimento cobre os dois.
 const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.send';
+const GCAL_TOKEN_KEY = 'portal_ej_gcal_token';   // cache do token na sessão (sobrevive a F5/navegação)
 let gcalTokenClient = null, gcalToken = null, gcalTokenExpiry = 0, gcalSilentTried = false;
 
 function googleCalEnabled()   { return !!(window.GOOGLE_CONFIG && window.GOOGLE_CONFIG.clientId); }
 function googleCalConnected() { return !!gcalToken && Date.now() < gcalTokenExpiry; }
+
+// E-mail do usuário logado, usado como login_hint: o Google mira essa conta no
+// fluxo silencioso, evitando o seletor de contas (e o popup) nas próximas vezes.
+function gcalLoginHint() { return (currentUser && currentUser.email || '').toLowerCase(); }
+
+// Guarda/recupera o token na sessionStorage. Os tokens do GIS duram ~1h e NÃO
+// têm refresh token (fluxo de navegador), então isto só evita repedir dentro da
+// validade — atravessa F5/navegação, mas não o fechamento do navegador.
+function gcalPersistToken() {
+  try { sessionStorage.setItem(GCAL_TOKEN_KEY, JSON.stringify({ t: gcalToken, e: gcalTokenExpiry })); } catch (_) {}
+}
+function gcalRestoreFromStorage() {
+  if (googleCalConnected()) return true;
+  try {
+    const s = JSON.parse(sessionStorage.getItem(GCAL_TOKEN_KEY) || 'null');
+    if (s && s.t && Date.now() < s.e) { gcalToken = s.t; gcalTokenExpiry = s.e; return true; }
+  } catch (_) {}
+  return false;
+}
+function gcalClearToken() {
+  gcalToken = null; gcalTokenExpiry = 0;
+  try { sessionStorage.removeItem(GCAL_TOKEN_KEY); } catch (_) {}
+}
 
 // Cria (uma vez) o "token client" do GIS. Retorna null se o GIS ainda não
 // carregou ou se a integração está desligada.
@@ -1068,8 +1092,9 @@ function gcalInitClient() {
   return gcalTokenClient;
 }
 
-// Pede um token de acesso. prompt:'' = silencioso (sem UI, se já consentiu);
-// prompt:'consent' = força a tela de autorização (1º acesso / reconectar).
+// Pede um token de acesso. prompt:'' = silencioso (sem UI, se já consentiu e há
+// sessão Google ativa); prompt:'consent' = força a tela (1º acesso / reconectar).
+// hint = e-mail do usuário → direciona a conta e evita o seletor.
 function gcalRequestToken(prompt) {
   return new Promise((resolve, reject) => {
     const client = gcalInitClient();
@@ -1078,14 +1103,20 @@ function gcalRequestToken(prompt) {
       if (resp && resp.error) return reject(resp);
       gcalToken = resp.access_token;
       gcalTokenExpiry = Date.now() + ((resp.expires_in || 3600) - 60) * 1000;
+      gcalPersistToken();
       resolve(gcalToken);
     };
-    try { client.requestAccessToken({ prompt: prompt || '' }); } catch (e) { reject(e); }
+    try {
+      const cfg = { prompt: prompt || '' };
+      const hint = gcalLoginHint(); if (hint) cfg.hint = hint;
+      client.requestAccessToken(cfg);
+    } catch (e) { reject(e); }
   });
 }
 
 async function gcalEnsureToken() {
   if (googleCalConnected()) return gcalToken;
+  if (gcalRestoreFromStorage()) return gcalToken;
   try { return await gcalRequestToken(''); } catch { return null; }
 }
 
@@ -1102,9 +1133,14 @@ async function connectGoogleCalendar(btn) {
   } finally { if (restore) restore(); updateGoogleCalUI(); }
 }
 
-// Tenta restaurar a conexão sem interface ao abrir o Calendário (1x por sessão).
+// Reconecta sem mostrar popup ao abrir Calendário/Avisos. Ordem: (1) cache da
+// sessão (sem rede); (2) pedido silencioso ao Google (prompt:''), que com conta
+// real + consentimento prévio + sessão Google ativa devolve o token SEM UI — só
+// 1x por sessão pra não insistir. Com conta fictícia o silencioso falha (normal).
 async function gcalSilentRestore() {
-  if (!googleCalEnabled() || googleCalConnected() || gcalSilentTried) { updateGoogleCalUI(); return; }
+  if (!googleCalEnabled() || googleCalConnected()) { updateGoogleCalUI(); return; }
+  if (gcalRestoreFromStorage()) { updateGoogleCalUI(); return; }
+  if (gcalSilentTried) { updateGoogleCalUI(); return; }
   gcalSilentTried = true;
   try { await gcalRequestToken(''); } catch { /* sem consentimento prévio: ok */ }
   updateGoogleCalUI();
@@ -1119,7 +1155,7 @@ function updateGoogleCalUI() {
     const need = btn.dataset.need;
     if (!googleCalEnabled() || (need && !can(need))) { btn.style.display = 'none'; return; }
     btn.style.display = '';
-    btn.textContent = on ? '✓ Conta Google conectada' : '🔗 Conectar conta Google';
+    btn.textContent = on ? '✓ Conta Google conectada' : 'Conectar conta Google';
     btn.classList.toggle('btn-ghost', on);
     btn.classList.toggle('btn-outline', !on);
   });
@@ -1160,7 +1196,7 @@ async function syncEventToGoogle(ev, hora, local, attendees) {
       body: JSON.stringify(gcalBuildBody(ev, hora, local, attendees)),
     });
     if (!res.ok) {
-      if (res.status === 401) { gcalToken = null; updateGoogleCalUI(); showToast('Sessão do Google expirou — reconecte o Google Agenda.'); return null; }
+      if (res.status === 401) { gcalClearToken(); updateGoogleCalUI(); showToast('Sessão do Google expirou — reconecte o Google Agenda.'); return null; }
       console.warn('Google Calendar erro:', res.status, await res.text());
       showToast('Evento criado, mas falhou ao enviar ao Google Agenda.');
       return null;
@@ -1257,7 +1293,7 @@ async function gmailSend({ to, bcc, subject, html }) {
       body: JSON.stringify({ raw: gmailBuildRaw({ to, bcc, subject, html }) }),
     });
     if (res.status === 401 || res.status === 403) {
-      gcalToken = null; updateGoogleCalUI();
+      gcalClearToken(); updateGoogleCalUI();
       showToast('Reconecte sua conta Google para liberar o envio de e-mail.');
       return false;
     }
@@ -1353,7 +1389,7 @@ function renderProjectDetail() {
       <div><div style="font-weight:600;">${gesc(n)}</div><div style="font-size:11px;color:var(--gray-500);">${gesc(getMemberRole(n))}</div></div>
     </div>`).join('')||'<div style="color:var(--gray-400);font-size:13px;">Nenhum membro vinculado.</div>';
     membersEl.innerHTML=`<div class="proj-members-list">${rows}</div>`
-      +(canManage?`<div class="card-footer"><button class="btn btn-outline" style="font-size:12px;width:100%;" onclick="openManageMembers()">👥 Gerenciar membros</button></div>`:'');
+      +(canManage?`<div class="card-footer"><button class="btn btn-outline" style="font-size:12px;width:100%;" onclick="openManageMembers()">Gerenciar membros</button></div>`:'');
   }
   const tasksEl=document.getElementById('proj-tasks');
   if(tasksEl) tasksEl.innerHTML=p.tasks.length===0?'<tr><td colspan="5" class="td-empty">Nenhuma tarefa cadastrada.</td></tr>'
@@ -1432,9 +1468,9 @@ function renderDrive() {
         return `<div class="card drive-topic" data-id="${gesc(String(t.id))}" style="cursor:pointer;"
              title="${has ? 'Abrir pasta no Drive' : 'Sem link'}${canEdit ? ' · botão direito para editar' : ''}"
              onclick="openDriveTopic(${jsArg(String(t.id))})">
-          <div style="font-size:22px;">${gesc(t.icon || '📁')}</div>
+          <div style="font-size:22px;">📁</div>
           <b>${gesc(t.name)}</b>
-          <div style="font-size:12px;color:var(--gray-500);margin-top:4px;">${has ? '🔗 link definido' : '— sem link'}</div>
+          <div style="font-size:12px;color:var(--gray-500);margin-top:4px;">${has ? 'link definido' : '— sem link'}</div>
         </div>`;
       }).join('');
   // Edição via botão direito — só para quem pode editar a plataforma.
@@ -1445,8 +1481,8 @@ function renderDrive() {
         const id = el.dataset.id;
         showContextMenu(e, [
           { label: '✏️ Renomear',     onClick: () => renameDriveTopic(id) },
-          { label: '🔗 Mudar link',    onClick: () => editDriveTopicLink(id) },
-          { label: '🗑️ Remover', danger: true, onClick: () => removeDriveTopic(id) },
+          { label: 'Mudar link',    onClick: () => editDriveTopicLink(id) },
+          { label: 'Remover', danger: true, onClick: () => removeDriveTopic(id) },
         ]);
       });
     });
@@ -1964,7 +2000,7 @@ function renderTrainees() {
         ${hideTraineePoints ? '' : `<div class="rank-points">${t.points} pts</div>`}</div>`).join('');
   }
   const toggleBtn = document.getElementById('toggle-points-btn');
-  if (toggleBtn) toggleBtn.textContent = hideTraineePoints ? '👁️ Mostrar pontos' : '🙈 Ocultar pontos';
+  if (toggleBtn) toggleBtn.textContent = hideTraineePoints ? 'Mostrar pontos' : 'Ocultar pontos';
   if(validEl){
     const minhas=pendingValidations.filter(v=>v.padrinho===currentUser.name);
     validEl.innerHTML=minhas.length===0?'<tr><td colspan="4" style="text-align:center;color:var(--gray-500);padding:16px;">Nenhuma validação pendente.</td></tr>'
@@ -2043,10 +2079,10 @@ function renderAtividades() {
   const wrap = document.getElementById('atividades-grid');
   if (!wrap) return;
   const cols = [
-    { key:'Projetos',  label:'📁 Projetos'  },
-    { key:'Comercial', label:'💼 Comercial' },
-    { key:'ADM/FIN',   label:'📊 ADM/FIN'   },
-    { key:'Diretoria', label:'🎯 Diretoria' },
+    { key:'Projetos',  label:'Projetos'  },
+    { key:'Comercial', label:'Comercial' },
+    { key:'ADM/FIN',   label:'ADM/FIN'   },
+    { key:'Diretoria', label:'Diretoria' },
   ];
   const isTrainee = currentUser.role === 'Trainee';
   wrap.innerHTML = cols.map(c => {
@@ -2073,7 +2109,7 @@ function renderAtividades() {
       const id = parseInt(el.dataset.mand);
       const a = activities.find(x => x.id === id); if (!a) return;
       showContextMenu(e, [
-        { label: a.link ? '🔗 Mudar link do PDF' : '🔗 Definir link do PDF', onClick: () => editMandatoryLink(id) },
+        { label: a.link ? 'Mudar link do PDF' : 'Definir link do PDF', onClick: () => editMandatoryLink(id) },
       ]);
     });
   });
@@ -2089,8 +2125,8 @@ function renderMandatoryActivityCard(a) {
        title="${hasLink ? 'Abrir PDF' : 'Sem arquivo'}${canEdit ? ` · botão direito: ${hasLink ? 'alterar' : 'definir'}` : ''}"
        style="border-color:var(--blue-400);background:linear-gradient(135deg,var(--blue-50),white);">
     <div class="atividade-card-head">
-      <div class="atividade-card-name">⭐ ${gesc(a.name)}
-        ${hasLink ? '<span style="font-size:11px;color:#16a34a;margin-left:6px;">📄 PDF</span>'
+      <div class="atividade-card-name">${gesc(a.name)}
+        ${hasLink ? '<span style="font-size:11px;color:#16a34a;margin-left:6px;">PDF</span>'
                   : '<span style="font-size:11px;color:var(--gray-400);margin-left:6px;">— sem arquivo</span>'}
       </div>
       <div class="atividade-card-pts" style="font-size:11px;color:var(--gray-400);">Sem pontuação</div>
@@ -2241,12 +2277,12 @@ function submitLegadoRegistro() {
 function renderRNN() {
   const grid=document.getElementById('rnn-grid'); if(!grid) return;
   grid.innerHTML=`
-    <div class="card"><div class="card-title">📘 Regras, Normas e Normativas</div>
+    <div class="card"><div class="card-title">Regras, Normas e Normativas</div>
       <div style="display:flex;flex-direction:column;gap:12px;font-size:13px;color:var(--gray-700);">
         ${rnnsData.map(r=>`<div><b>${gesc(r.titulo)}</b><br>${gesc(r.body)}</div>`).join('')}
       </div>
     </div>
-    <div class="card"><div class="card-title">💡 Nossos Valores</div>
+    <div class="card"><div class="card-title">Nossos Valores</div>
       <div style="display:flex;flex-direction:column;gap:14px;">
         ${valoresData.map(v=>`<div style="padding:14px;background:var(--blue-50);border-radius:8px;"><b style="color:var(--blue-700);">${gesc(v.titulo)}</b><div style="font-size:13px;color:var(--gray-700);margin-top:4px;">${gesc(v.body)}</div></div>`).join('')}
       </div>
@@ -2338,7 +2374,7 @@ function buildAnualChart() {
 // Atualização 5: card de meta reutilizável (Metas e Dashboard).
 function fmtMetaVal(campo, val) {
   const m = metas[campo];
-  if (campo === 'faturamento') return 'R$ ' + val.toLocaleString('pt-BR', { minimumFractionDigits: 0 });
+  if (m?.prefixo === 'R$') return 'R$ ' + val.toLocaleString('pt-BR', { minimumFractionDigits: 0 });
   return val + (m?.sufixo || '');
 }
 
@@ -2372,7 +2408,7 @@ function renderMetas() {
   // Gráfico anual
   const chartCard=`<div class="card" style="grid-column:1/-1;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <div class="card-title" style="margin-bottom:0;">💰 Faturamento — Evolução Anual 2026</div>
+      <div class="card-title" style="margin-bottom:0;">Faturamento — Evolução Anual 2026</div>
       <button class="btn btn-ghost" style="font-size:12px;" onclick="openEditAnual()">✏️ Editar dados</button>
     </div>
     <div id="anual-chart-area">${buildAnualChart()}</div>
@@ -2421,7 +2457,7 @@ function renderCapacitacoes() {
   container.innerHTML=`<div class="cap-tree">
     ${Object.entries(capTree).map(([key,col])=>`
       <div class="cap-col-group">
-        <div class="cap-col-header">${col.emoji} ${col.label}</div>
+        <div class="cap-col-header">${col.label}</div>
         <div class="cap-tracks">
           ${col.tracks.map((track,ti)=>`
             <div class="cap-track">
@@ -2432,7 +2468,7 @@ function renderCapacitacoes() {
                 const ctxAttr = locked ? '' : `data-col="${key}" data-track="${ti}" data-idx="${ci}"`;
                 return `<div class="cap-node ${cls}" ${ctxAttr} title="${gesc(cap.name)}${locked?' (Bloqueado — complete o anterior)':' — botão direito para opções'}">
                   <div class="cap-title">${gesc(cap.name)}</div>
-                  <div class="cap-status">${cap.done?'Concluído':locked?'🔒 Bloqueado':'Disponível'}</div>
+                  <div class="cap-status">${cap.done?'Concluído':locked?'Bloqueado':'Disponível'}</div>
                 </div>`;
               }).join('')}
               ${canAdd?`<div class="cap-node add-slot" onclick="openAddCap('${key}',${ti})">
@@ -2445,7 +2481,7 @@ function renderCapacitacoes() {
   <div style="margin-top:16px;display:flex;gap:14px;align-items:center;font-size:13px;color:var(--gray-600);">
     <div style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:var(--blue-600);border-radius:3px;display:inline-block;"></span> Concluído</div>
     <div style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:white;border:2px solid var(--blue-200);border-radius:3px;display:inline-block;"></span> Disponível</div>
-    <div style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:var(--gray-100);border-radius:3px;display:inline-block;"></span> 🔒 Bloqueado</div>
+    <div style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:var(--gray-100);border-radius:3px;display:inline-block;"></span> Bloqueado</div>
     <div style="margin-left:auto;font-size:12px;color:var(--gray-500);">Dica: clique com o botão direito sobre uma capacitação para editar.</div>
   </div>`;
   // Atualização 5: menu de contexto por capacitação
@@ -2464,8 +2500,8 @@ function renderCapacitacoes() {
         : { label: '✓ Marcar como concluído', onClick: () => toggleCapDone(col, track, idx) } ];
       if (can('capacitacao.edit')) items.push(
         { label: '✏️ Editar nome', onClick: () => editCapName(col, track, idx) },
-        { label: '🔗 Mudar link',  onClick: () => editCapLink(col, track, idx) },
-        { label: '🗑️ Remover', danger: true, onClick: () => removeCap(col, track, idx) },
+        { label: 'Mudar link',  onClick: () => editCapLink(col, track, idx) },
+        { label: 'Remover', danger: true, onClick: () => removeCap(col, track, idx) },
       );
       showContextMenu(e, items);
     });
@@ -2479,7 +2515,7 @@ function toggleCapDone(col, track, idx) {
   dbSetCapProgress(cap.id, cap.done);
   syncPerfilCap(cap.name, cap.done);   // mantém a lista do perfil em sincronia
   renderCapacitacoes();
-  showToast(cap.done ? 'Capacitação concluída! 🎉' : 'Marcação removida.');
+  showToast(cap.done ? 'Capacitação concluída!' : 'Marcação removida.');
 }
 
 // ---- Unificação Perfil ↔ árvore: ambos usam o progresso (cap.done / cap_progress) ----
@@ -2848,8 +2884,8 @@ function renderMembros() {
           <td style="text-align:right;white-space:nowrap;">
             ${canEditMembers ? `
             <button class="btn btn-ghost" style="font-size:12px;" onclick="toggleStatusByName(${jsArg(m.name)})">${m.status === 'Ativo' ? '⏸ Desativar' : '▶ Ativar'}</button>
-            <button class="btn btn-ghost" style="font-size:12px;color:#dc2626;" onclick="openDesligarMembro(${jsArg(m.name)})">🚪 Desligar</button>
-            ${!isSelf ? `<button class="btn btn-ghost" style="font-size:12px;color:#991b1b;" onclick="excluirMembroPermanente(${jsArg(m.name)})" title="Apaga o registro do banco — só para teste/erro">🗑 Excluir</button>` : ''}
+            <button class="btn btn-ghost" style="font-size:12px;color:#dc2626;" onclick="openDesligarMembro(${jsArg(m.name)})">Desligar</button>
+            ${!isSelf ? `<button class="btn btn-ghost" style="font-size:12px;color:#991b1b;" onclick="excluirMembroPermanente(${jsArg(m.name)})" title="Apaga o registro do banco — só para teste/erro">Excluir</button>` : ''}
             ` : '<span style="font-size:12px;color:var(--gray-400);">—</span>'}
           </td>
         </tr>`;
@@ -2976,27 +3012,24 @@ function renderTopicosEditor() {
   list.innerHTML = entries.map(([key, col]) => {
     const qtd = (col.tracks || []).reduce((acc, t) => acc + t.length, 0);
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--gray-100);border-radius:6px;">
-      <div style="font-size:18px;">${gesc(col.emoji || '')}</div>
       <div style="flex:1;">
         <div style="font-weight:600;">${gesc(col.label)}</div>
         <div style="font-size:11px;color:var(--gray-500);">${qtd} capacitaç${qtd === 1 ? 'ão' : 'ões'}</div>
       </div>
-      <button class="btn btn-ghost" style="font-size:12px;color:#dc2626;" onclick="removeTopicoCap('${key}')">🗑️ Remover</button>
+      <button class="btn btn-ghost" style="font-size:12px;color:#dc2626;" onclick="removeTopicoCap('${key}')">Remover</button>
     </div>`;
   }).join('');
 }
 
 async function addTopicoCap() {
   const nome  = (document.getElementById('cap-novo-nome')?.value  || '').trim();
-  const emoji = (document.getElementById('cap-novo-emoji')?.value || '').trim() || '📌';
   if (!nome) { showToast('Informe o nome do tópico.'); return; }
   const key = slugTopico(nome);
   if (!key)           { showToast('Nome inválido.'); return; }
   if (capTree[key])   { showToast('Já existe um tópico com esse nome.'); return; }
-  const trackId = await dbCreateTopic(key, nome, emoji);   // cria tópico + 1 trilha no banco
-  capTree[key] = { label: nome, emoji, tracks: [[]], _trackIds: [trackId] };
+  const trackId = await dbCreateTopic(key, nome, '');   // cria tópico + 1 trilha no banco
+  capTree[key] = { label: nome, emoji: '', tracks: [[]], _trackIds: [trackId] };
   document.getElementById('cap-novo-nome').value = '';
-  document.getElementById('cap-novo-emoji').value = '';
   renderTopicosEditor();
   renderCapacitacoes();
   showToast(`Tópico "${nome}" adicionado.`);
@@ -3274,7 +3307,7 @@ function renderPonto() {
     const seg = appToday(); seg.setDate(seg.getDate() - ((seg.getDay() + 6) % 7));
     const dom = new Date(seg); dom.setDate(dom.getDate() + 6);
     const f = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-    lblEl.textContent = `Semana de ${f(seg)} a ${f(dom)}${pontoIsMonday() ? ' · 📅 hoje é segunda-feira' : ''}`;
+    lblEl.textContent = `Semana de ${f(seg)} a ${f(dom)}${pontoIsMonday() ? ' · hoje é segunda-feira' : ''}`;
   }
   // Status do registro semanal
   const s = pontoData.semana, sameWeek = s.weekKey === wk;
@@ -3295,8 +3328,8 @@ function renderPonto() {
     if (!canSem) {
       semBloq.style.display = '';
       semBloq.textContent = sameWeek
-        ? '🔒 Horas desta semana já registradas. Próxima edição: na segunda da semana que vem.'
-        : '🔒 O registro só fica disponível às segundas-feiras.';
+        ? 'Horas desta semana já registradas. Próxima edição: na segunda da semana que vem.'
+        : 'O registro só fica disponível às segundas-feiras.';
     } else {
       semBloq.style.display = 'none';
     }
@@ -3318,8 +3351,8 @@ function renderPonto() {
     if (!canEng) {
       engBloq.style.display = '';
       engBloq.textContent = sameEng
-        ? '🔒 Engajamento desta semana já registrado. Próxima edição: na segunda da semana que vem.'
-        : '🔒 O engajamento só pode ser marcado às segundas-feiras.';
+        ? 'Engajamento desta semana já registrado. Próxima edição: na segunda da semana que vem.'
+        : 'O engajamento só pode ser marcado às segundas-feiras.';
     } else {
       engBloq.style.display = 'none';
     }
@@ -3905,9 +3938,10 @@ async function loadMetasFromDB() {
     sbClient.from('annual_goals').select('goal_amount').eq('year', year).maybeSingle(),
     sbClient.from('monthly_revenue').select('month,realizado').eq('year', year).order('month'),
   ]);
+  // label/prefixo/sufixo são definidos no código (apresentação); do banco vêm só
+  // os números editáveis (meta/atual).
   if (Array.isArray(mRes.data)) mRes.data.forEach(r => {
     if (metas[r.key]) Object.assign(metas[r.key], {
-      label: r.label, prefixo: r.prefixo || '', sufixo: r.sufixo || '',
       meta: Number(r.meta), atual: Number(r.atual),
     });
   });
@@ -4054,7 +4088,7 @@ async function loadCapsFromDB() {
         .map(c => ({ id:c.id, name:c.name, link:c.link||'', done: !!doneMap[c.id] }));
       tracks.push(caps); trackIds.push(tr.id);
     });
-    capTree[topic.key] = { label: topic.label, emoji: topic.emoji || '📌', tracks, _trackIds: trackIds };
+    capTree[topic.key] = { label: topic.label, emoji: '', tracks, _trackIds: trackIds };
   });
   // Sincroniza a lista de capacitações feitas do PERFIL com o progresso (mesma fonte).
   const feitas = [];
@@ -4322,7 +4356,18 @@ function loadState() {
   fillArr(valoresData, saved.valoresData);
 
   fillObj(legadoData, saved.legadoData);
-  fillObj(metas, saved.metas);
+  // metas: rótulo/formato (label/prefixo/sufixo) vêm SEMPRE do código; do estado
+  // salvo restauramos só os números editáveis (meta/atual). Senão um snapshot
+  // antigo reverteria nome/unidade dos cards.
+  if (saved.metas && typeof saved.metas === 'object') {
+    Object.keys(metas).forEach(k => {
+      const s = saved.metas[k];
+      if (s && typeof s === 'object') {
+        if (s.meta  != null) metas[k].meta  = Number(s.meta);
+        if (s.atual != null) metas[k].atual = Number(s.atual);
+      }
+    });
+  }
   fillObj(metasAnuais, saved.metasAnuais);
   fillObj(capTree, saved.capTree);
   fillArr(driveTopics, saved.driveTopics);

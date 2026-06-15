@@ -530,11 +530,11 @@
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
       <button class="btn btn-outline" style="text-align:left;padding:12px;border-color:#dc2626;color:#dc2626;" onclick="executarDesligamento('ma_conduta')">
-        ⚠️ Desligamento por má conduta
+        Desligamento por má conduta
         <div style="font-size:11px;color:var(--gray-500);font-weight:400;margin-top:2px;">Procedimento específico para infrações graves.</div>
       </button>
       <button class="btn btn-outline" style="text-align:left;padding:12px;" onclick="executarDesligamento('normal')">
-        🚪 Desligamento (saída normal)
+        Desligamento (saída normal)
         <div style="font-size:11px;color:var(--gray-500);font-weight:400;margin-top:2px;">Saída voluntária, fim de mandato, conclusão do curso, etc.</div>
       </button>
     </div>
@@ -552,8 +552,7 @@
     <div id="cap-topicos-list" style="display:flex;flex-direction:column;gap:8px;margin:14px 0;"></div>
     <div style="border-top:1px solid var(--gray-200);padding-top:12px;">
       <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Adicionar novo tópico</div>
-      <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;margin-bottom:10px;">
-        <div class="form-row" style="margin-bottom:0;"><label>Emoji</label><input type="text" id="cap-novo-emoji" maxlength="3" placeholder="🎨" /></div>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:10px;">
         <div class="form-row" style="margin-bottom:0;"><label>Nome do tópico</label><input type="text" id="cap-novo-nome" placeholder="Ex: Design" /></div>
       </div>
       <button class="btn btn-primary" onclick="addTopicoCap()">+ Adicionar tópico</button>
@@ -609,7 +608,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" id="task-detail-edit-btn" onclick="openEditTaskFromDetail()" style="display:none;">✏️ Modificar dados</button>
-      <button class="btn btn-danger" id="task-detail-delete-btn" onclick="deleteTaskFromDetail()" style="display:none;">🗑️ Excluir tarefa</button>
+      <button class="btn btn-danger" id="task-detail-delete-btn" onclick="deleteTaskFromDetail()" style="display:none;">Excluir tarefa</button>
       <button class="btn btn-primary" onclick="closeModal('modal-task-detail')">Fechar</button>
     </div>
   </div>

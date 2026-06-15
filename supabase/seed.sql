@@ -149,8 +149,8 @@ insert into institutional_docs (kind, titulo, body, position) values
 -- ============================== METAS =======================================
 insert into metas (key, label, prefixo, sufixo, meta, atual) values
   ('faturamento','Faturamento Mensal','R$','',15000,8500),
-  ('colabs','Projetos em Colaboração','',' colabs',3,1),
-  ('engajamento','Engajamento dos Membros','','',80,65)
+  ('colabs','Faturamento em Colaboração','R$','',30000,5000),
+  ('engajamento','Engajamento dos Membros','','%',80,65)
 on conflict (key) do nothing;
 
 insert into annual_goals (year, goal_amount) values (2026, 180000)

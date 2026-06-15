@@ -5,14 +5,13 @@
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
     <div style="background:var(--gray-100);border-radius:8px;padding:8px 14px;display:flex;gap:8px;align-items:center;color:var(--gray-500);">
-      <span>🔍</span>
       <input type="text" id="cal-search" placeholder="Buscar por data, nome ou visibilidade..."
         style="border:none;outline:none;background:transparent;font-family:inherit;font-size:14px;width:260px;color:var(--gray-800);" />
     </div>
     <!-- Integração Google (Fase 5): só aparece se config.js tiver clientId.
          O texto/estilo é atualizado por updateGoogleCalUI() conforme a conexão. -->
     <button class="btn btn-outline google-connect-btn" data-need="calendario.create"
-            onclick="connectGoogleCalendar(this)" style="display:none;">🔗 Conectar conta Google</button>
+            onclick="connectGoogleCalendar(this)" style="display:none;">Conectar conta Google</button>
     <button class="btn btn-primary" onclick="openNewEvent()">+ Novo evento</button>
   </div>
 </div>

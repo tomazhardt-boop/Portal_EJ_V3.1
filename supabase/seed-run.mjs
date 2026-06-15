@@ -191,8 +191,8 @@ async function main() {
   // ---- metas ----
   await post('metas', [
     { key:'faturamento', label:'Faturamento Mensal', prefixo:'R$', sufixo:'', meta:15000, atual:8500 },
-    { key:'colabs', label:'Projetos em Colaboração', prefixo:'', sufixo:' colabs', meta:3, atual:1 },
-    { key:'engajamento', label:'Engajamento dos Membros', prefixo:'', sufixo:'', meta:80, atual:65 },
+    { key:'colabs', label:'Faturamento em Colaboração', prefixo:'R$', sufixo:'', meta:30000, atual:5000 },
+    { key:'engajamento', label:'Engajamento dos Membros', prefixo:'', sufixo:'%', meta:80, atual:65 },
   ]);
   await post('annual_goals', [{ year:2026, goal_amount:180000 }]);
   await post('monthly_revenue',
