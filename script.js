@@ -2886,6 +2886,11 @@ function renderMembros() {
                ${sectors.map(s => `<option ${s === m.sector ? 'selected' : ''}>${s}</option>`).join('')}
              </select>`;
         const statTag = m.status === 'Ativo' ? '<span class="tag green">Ativo</span>' : '<span class="tag">Inativo</span>';
+        // Política de saída: quando o Inativo veio de um desligamento, mostra
+        // até quando é recuperável (depois disso será apagado de vez).
+        const reterTag = (m.status !== 'Ativo' && m.excluirEm)
+          ? `<div style="font-size:10px;color:#b45309;margin-top:3px;">Desligado ${fmtData(m.desligadoEm)} · recuperável até ${fmtData(m.excluirEm)}</div>`
+          : '';
         return `<tr>
           <td>
             <div style="display:flex;align-items:center;gap:10px;">
@@ -2901,7 +2906,7 @@ function renderMembros() {
           </select></td>
           <td>${setorPadCell}</td>
           <td>${gesc(m.entryDate || '—')}</td>
-          <td>${statTag}</td>
+          <td>${statTag}${reterTag}</td>
           <td style="text-align:right;white-space:nowrap;">
             ${canEditMembers ? `
             <button class="btn btn-ghost" style="font-size:12px;" onclick="toggleStatusByName(${jsArg(m.name)})">${m.status === 'Ativo' ? '⏸ Desativar' : '▶ Ativar'}</button>
@@ -2958,7 +2963,12 @@ function toggleStatusByName(name) {
   if (!can('membros.edit')) { showToast('Sem permissão para alterar membros.'); return; }
   const i = members.findIndex(m => m.name === name); if (i < 0) return;
   members[i].status = members[i].status === 'Ativo' ? 'Inativo' : 'Ativo';
+  // Recuperação: reativar um membro desligado cancela o apagamento agendado.
+  if (members[i].status === 'Ativo' && members[i].desligadoEm) {
+    delete members[i].desligadoEm; delete members[i].excluirEm; delete members[i].desligamentoTipo;
+  }
   dbUpdateMember(members[i], { status: members[i].status });
+  saveState();
   if (document.getElementById('memb-table'))        renderMembros();
   if (document.getElementById('permissions-table')) renderPermissions();
   showToast(`${members[i].name} agora está ${members[i].status}.`);
@@ -2972,30 +2982,71 @@ function openDesligarMembro(name) {
   document.getElementById('modal-desligar').classList.add('active');
 }
 
-// Executa o desligamento. Tipo: 'ma_conduta' ou 'normal'.
+// --- Política de saída: retenção/recuperação ---
+function retencaoMeses() { const n = Number(window.PLATFORM_CONFIG?.retencaoDesligamentoMeses); return Number.isFinite(n) && n > 0 ? n : 6; }
+function fmtData(v) { if (!v) return '—'; const d = (v instanceof Date) ? v : new Date(v); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR'); }
+
+// Executa o desligamento. Tipo: 'ma_conduta' ou 'normal' (as 4 sub-opções de
+// má conduta entram quando chegarem os templates oficiais).
 // Decisão de projeto (exclusão híbrida): desligar = SOFT — marca Inativo e
 // PRESERVA o registro/histórico. Um Inativo não consegue mais entrar (bloqueio
-// no login). Para apagar de vez (teste/erro), use "Excluir permanentemente".
-// PLACEHOLDER de geração de documento — template e mapeamento entram depois.
+// no login). Fica RECUPERÁVEL por `retencaoMeses()` meses (botão Ativar);
+// passado o prazo, o apagamento definitivo será feito por job server-side
+// (Fase de backend) — aqui só registramos as datas. Para apagar de vez
+// (teste/erro), use "Excluir permanentemente".
 async function executarDesligamento(tipo) {
   if (!desligamentoCtx) return;
   const nome = desligamentoCtx.memberName;
   const tituloDoc = tipo === 'ma_conduta' ? 'TERMO DE DESLIGAMENTO POR MÁ CONDUTA' : 'TERMO DE DESLIGAMENTO';
-  console.log(`${tituloDoc} gerado para ${nome} — placeholder (template pendente).`);
   const m = members.find(x => x.name === nome);
   if (m) {
-    m.status = 'Inativo';
+    const hoje = appToday();
+    m.status           = 'Inativo';
+    m.desligadoEm      = hoje.toISOString();
+    m.desligamentoTipo = tipo;
+    m.excluirEm        = addMonths(hoje, retencaoMeses()).toISOString();
     await dbUpdateMember(m, { status: 'Inativo' });
     if (!sbClient) {  // fallback offline: também tira a credencial local
       const e = memberEmail(m); delete authData.byEmail[e]; delete authData.resetCodes[e]; saveAuth();
     }
+    saveState();
+    // Gera o termo em PDF (modelo PROVISÓRIO — texto oficial entra com os
+    // templates). O desligamento vale mesmo se o usuário fechar a impressão.
+    gerarTermoDesligamento(m, tipo, tituloDoc);
   }
   desligamentoCtx = null;
   closeModal('modal-desligar');
   if (document.getElementById('memb-table'))        renderMembros();
   if (document.getElementById('permissions-table')) renderPermissions();
   refreshProtoUserSelect();
-  showToast(`${nome} desligado(a) — agora Inativo. ${tituloDoc.toLowerCase()} gerado (placeholder).`);
+  showToast(`${nome} desligado(a) — Inativo, recuperável até ${fmtData(m?.excluirEm)}.`);
+}
+
+// Gera o PDF do termo de desligamento. PROVISÓRIO: usa um texto-modelo genérico
+// só para o fluxo funcionar; será trocado pelos templates oficiais (1 saída
+// normal + 4 de má conduta) quando chegarem. Mesmo motor `imprimirTermo`.
+function gerarTermoDesligamento(m, tipo, titulo) {
+  const hoje = fmtData(appToday());
+  const motivo = tipo === 'ma_conduta' ? 'desligamento por má conduta' : 'desligamento (saída)';
+  const corpo = `
+    <h1>${gesc(titulo)}</h1>
+    <div class="doc-meta">Integre Jr · emitido em ${hoje}</div>
+    <div class="doc-body">[MODELO PROVISÓRIO — o texto oficial deste termo será inserido em breve.]
+
+Pelo presente instrumento, registra-se o ${motivo} do(a) membro(a) abaixo identificado(a):
+
+Nome: ${gesc(m.name)}
+Cargo: ${gesc(m.role)}${m.sector && m.sector !== '—' ? ' · ' + gesc(m.sector) : ''}
+E-mail: ${gesc(m.email || '—')}
+Data de entrada: ${gesc(m.entryDate || '—')}
+Data do desligamento: ${hoje}
+
+O acesso à plataforma fica imediatamente suspenso. O registro permanece recuperável até ${fmtData(m.excluirEm)}, quando será apagado em definitivo.</div>
+    <div class="doc-sign">
+      <div class="line"></div><div class="who">${gesc(m.name)} — membro(a) desligado(a)</div>
+      <div class="line"></div><div class="who">${gesc(currentUser.name)} — ${gesc(currentUser.role)}</div>
+    </div>`;
+  imprimirTermo(titulo, corpo);
 }
 
 // Exclusão PERMANENTE (hard delete). Apaga o registro do banco; as FKs limpam os
@@ -3198,6 +3249,32 @@ function imprimirContrato() {
   if (!w) { showToast('Permita pop-ups para imprimir.'); return; }
   w.document.write(`<pre style="white-space:pre-wrap;font-family:system-ui,sans-serif;font-size:13px;line-height:1.6;padding:24px;">${gesc(contratoTextoAtual)}</pre>`);
   w.document.close(); w.focus(); w.print();
+}
+
+// Motor genérico de impressão de documento → PDF (via "Salvar como PDF" do
+// navegador). Recebe título + HTML do corpo (já confiável/escapado por quem
+// chama). Reutilizável por termos de desligamento, contratos e demais
+// documentos. (Ponte combinada: depois migra para o motor Docs API + Drive.)
+function imprimirTermo(titulo, corpoHtml) {
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Permita pop-ups para gerar o PDF.'); return false; }
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+    <title>${gesc(titulo)}</title>
+    <style>
+      body{font-family:system-ui,Segoe UI,sans-serif;color:#1f2937;line-height:1.6;
+           max-width:720px;margin:40px auto;padding:0 32px;}
+      h1{font-size:20px;text-align:center;margin:0 0 4px;}
+      .doc-meta{text-align:center;color:#6b7280;font-size:12px;margin-bottom:28px;}
+      .doc-body{font-size:14px;white-space:pre-wrap;}
+      .doc-sign{margin-top:64px;}
+      .doc-sign .line{border-top:1px solid #374151;width:280px;margin:48px auto 4px;}
+      .doc-sign .who{text-align:center;font-size:13px;color:#374151;}
+      @media print{ body{margin:0;} }
+    </style></head><body>${corpoHtml}</body></html>`);
+  w.document.close(); w.focus();
+  // dá um tick para renderizar antes de abrir o diálogo de impressão
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 150);
+  return true;
 }
 
 // ============== PONTO — Atualização 8 (item 7) ==============

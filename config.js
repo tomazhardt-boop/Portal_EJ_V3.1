@@ -52,3 +52,15 @@ window.MODULES = {
   contratos:    true,
   metas:        true,
 };
+
+// ============================================================================
+// Configurações gerais da plataforma — ajustáveis por EJ.
+// ----------------------------------------------------------------------------
+// `retencaoDesligamentoMeses`: ao desligar um membro, ele fica INATIVO e
+// recuperável por este nº de meses; depois o registro é apagado de vez (o
+// apagamento automático — job no Supabase — entra na fase de backend). Default
+// 6 meses; cada EJ pode mudar.
+// ============================================================================
+window.PLATFORM_CONFIG = {
+  retencaoDesligamentoMeses: 6,
+};
