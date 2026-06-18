@@ -51,4 +51,13 @@
     <div id="ponto-engaj-scale" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
     <div id="ponto-engaj-status" style="font-size:13px;color:var(--gray-500);"></div>
   </div>
+
+  <!-- ADMIN: sincronização da planilha-espelho (só aparece p/ quem edita membros e com o espelho ligado) -->
+  <div class="card" id="ponto-admin-sync" style="grid-column:1/-1;display:none;">
+    <div class="card-title">Planilha de ponto (admin)</div>
+    <div style="font-size:13px;color:var(--gray-500);margin-bottom:12px;">
+      Garante uma linha para cada membro ativo na planilha-espelho do Google (horas e engajamento por semana).
+    </div>
+    <button class="btn btn-outline" onclick="pontoSyncAllActive(this)">Sincronizar planilha</button>
+  </div>
 </div>

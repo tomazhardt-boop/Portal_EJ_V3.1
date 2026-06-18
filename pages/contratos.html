@@ -12,40 +12,77 @@
     <label>Modelo de contrato</label>
     <select id="ct-modelo">
       <option value="servico">Prestação de Serviços</option>
-      <option value="patrocinio">Patrocínio</option>
+      <option value="patrocinio" disabled>Patrocínio (em breve)</option>
     </select>
   </div>
 
-  <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin:6px 0 10px;">Contratante (cliente)</div>
+  <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin:6px 0 10px;">Contratante — empresa</div>
+  <div class="ct-hint">Se o contrato for em nome de Pessoa Física, deixe os campos da empresa em branco.</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-    <div class="form-row" style="margin-bottom:0;"><label>Nome / Razão social *</label><input type="text" id="ct-cliente-nome" placeholder="Ex: Café Norte Ltda." /></div>
-    <div class="form-row" style="margin-bottom:0;"><label>CPF / CNPJ</label><input type="text" id="ct-cliente-doc" placeholder="00.000.000/0001-00" /></div>
-    <div class="form-row" style="margin-bottom:0;"><label>Endereço</label><input type="text" id="ct-cliente-end" placeholder="Rua, nº, bairro, cidade" /></div>
-    <div class="form-row" style="margin-bottom:0;"><label>Representante legal</label><input type="text" id="ct-cliente-rep" placeholder="Nome do responsável" /></div>
-    <div class="form-row" style="margin-bottom:0;"><label>Contato / e-mail</label><input type="text" id="ct-cliente-contato" placeholder="email@cliente.com" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Nome fantasia / Razão social</label><input type="text" id="ct-emp-nome" placeholder="Ex: Café Norte Ltda." /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>CNPJ</label><input type="text" id="ct-emp-cnpj" placeholder="00.000.000/0001-00" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Rua</label><input type="text" id="ct-emp-rua" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Número</label><input type="text" id="ct-emp-numero" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Bairro</label><input type="text" id="ct-emp-bairro" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Cidade/Estado</label><input type="text" id="ct-emp-ciduf" placeholder="Blumenau/SC" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>CEP</label><input type="text" id="ct-emp-cep" placeholder="00000-000" /></div>
   </div>
 
-  <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin:6px 0 10px;">Serviço</div>
-  <div class="form-row"><label>Objeto do contrato *</label><textarea id="ct-objeto" rows="3" placeholder="Descreva o serviço a ser prestado (ex: desenvolvimento de site institucional...)"></textarea></div>
+  <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin:6px 0 10px;">Representante</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-    <div class="form-row" style="margin-bottom:0;"><label>Valor total (R$) *</label><input type="number" id="ct-valor" min="0" step="0.01" placeholder="0,00" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Nome completo</label><input type="text" id="ct-rep-nome" /></div>
     <div class="form-row" style="margin-bottom:0;">
-      <label>Forma de pagamento</label>
-      <select id="ct-pagamento">
-        <option>À vista</option>
-        <option>50% entrada + 50% entrega</option>
-        <option>Parcelado</option>
-        <option>Por etapas</option>
+      <label>Gênero</label>
+      <select id="ct-rep-genero">
+        <option value="">— selecionar —</option>
+        <option>Masculino</option><option>Feminino</option><option>Outro</option>
       </select>
     </div>
-    <div class="form-row" style="margin-bottom:0;"><label>Início</label><input type="text" id="ct-inicio" placeholder="dd/mm/aaaa" maxlength="10" /></div>
-    <div class="form-row" style="margin-bottom:0;"><label>Entrega prevista</label><input type="text" id="ct-entrega" placeholder="dd/mm/aaaa" maxlength="10" /></div>
-    <div class="form-row" style="margin-bottom:0;"><label>Cidade (foro)</label><input type="text" id="ct-cidade" placeholder="Blumenau/SC" /></div>
-    <div class="form-row" style="margin-bottom:0;"><label>Data do contrato</label><input type="text" id="ct-data" placeholder="dd/mm/aaaa" maxlength="10" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Nacionalidade</label><input type="text" id="ct-rep-nac" placeholder="Ex: brasileira" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Estado civil</label><input type="text" id="ct-rep-estciv" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Profissão</label><input type="text" id="ct-rep-prof" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>RG</label><input type="text" id="ct-rep-rg" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Órgão emissor</label><input type="text" id="ct-rep-orgao" placeholder="Ex: SSP/SC" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>CPF</label><input type="text" id="ct-rep-cpf" placeholder="000.000.000-00" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Rua</label><input type="text" id="ct-rep-rua" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Número</label><input type="text" id="ct-rep-numero" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Bairro</label><input type="text" id="ct-rep-bairro" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Cidade/Estado</label><input type="text" id="ct-rep-ciduf" placeholder="Blumenau/SC" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>CEP</label><input type="text" id="ct-rep-cep" placeholder="00000-000" /></div>
+  </div>
+
+  <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin:6px 0 10px;">Projeto</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+    <div class="form-row" style="margin-bottom:0;">
+      <label>Tipo de contrato</label>
+      <select id="ct-tipo"><option>Serviço</option><option>Produto</option></select>
+    </div>
+    <div class="form-row" style="margin-bottom:0;"><label>Plataforma (opcional)</label><input type="text" id="ct-plataforma" placeholder="se houver" /></div>
+  </div>
+  <div class="form-row"><label>Serviço prestado *</label><textarea id="ct-servico" rows="3" placeholder="Descreva o serviço/produto a ser entregue"></textarea></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+    <div class="form-row" style="margin-bottom:0;"><label>Prazo de execução (dias úteis)</label><input type="text" id="ct-prazo" placeholder="20 (vinte)" /></div>
+    <div class="form-row" style="margin-bottom:0;"><label>Montante (R$) *</label><input type="text" id="ct-montante" placeholder="1.500,00 (mil e quinhentos reais)" /></div>
+    <div class="form-row" style="margin-bottom:0;">
+      <label>Forma de pagamento</label>
+      <select id="ct-formapg"><option>à vista</option><option>de forma parcelada</option></select>
+    </div>
+    <div class="form-row" style="margin-bottom:0;"><label>Data do contrato</label><input type="date" id="ct-data" /></div>
+  </div>
+  <div class="form-row"><label>Informações necessárias para início do projeto (opcional)</label><textarea id="ct-infoinicio" rows="2" placeholder="se houver"></textarea></div>
+
+  <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin:6px 0 10px;">Parcelas (valor e vencimento)</div>
+  <div id="ct-parcelas" style="margin-bottom:8px;"></div>
+  <button type="button" class="btn btn-outline" style="font-size:12px;" onclick="addParcelaRow()">+ Parcela</button>
+
+  <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin:16px 0 10px;">Testemunhas (membros)</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+    <div class="form-row" style="margin-bottom:0;"><label>1ª Testemunha</label><select id="ct-test1"></select></div>
+    <div class="form-row" style="margin-bottom:0;"><label>2ª Testemunha</label><select id="ct-test2"></select></div>
   </div>
 
   <button class="btn btn-primary" onclick="gerarContrato()">Gerar contrato</button>
-  <span style="font-size:12px;color:var(--gray-400);margin-left:10px;">* campos obrigatórios</span>
+  <span style="font-size:12px;color:var(--gray-400);margin-left:10px;">* campos obrigatórios — o CPF/RG das testemunhas vêm do cadastro do membro</span>
 </div>
 
 <div class="card" id="ct-preview-card" style="display:none;">
@@ -56,8 +93,5 @@
       <button class="btn btn-outline" style="font-size:12px;" onclick="imprimirContrato()">Imprimir / PDF</button>
     </div>
   </div>
-  <div style="font-size:12px;color:var(--gray-500);background:var(--gray-100);padding:8px 10px;border-radius:6px;margin-bottom:12px;">
-    Modelos provisórios — os templates oficiais entram depois (trocar <code>montarContratoServico()</code> e <code>montarContratoPatrocinio()</code> no script.js).
-  </div>
-  <pre id="ct-preview" style="white-space:pre-wrap;font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:13px;line-height:1.6;color:var(--gray-800);background:white;border:1px solid var(--gray-200);border-radius:8px;padding:18px;margin:0;"></pre>
+  <div id="ct-preview" style="font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:13px;line-height:1.6;color:var(--gray-800);background:white;border:1px solid var(--gray-200);border-radius:8px;padding:18px;"></div>
 </div>

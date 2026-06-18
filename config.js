@@ -22,6 +22,11 @@ window.GOOGLE_CONFIG = {
   clientId: '1024997106052-er49mhsab92f8h1b92rauq0v45h5802q.apps.googleusercontent.com',
   companyDomain: 'integrejr.com.br',     // domínio do Workspace da EJ
   calendarTimeZone: 'America/Sao_Paulo', // fuso usado nos eventos
+  // ID da planilha-espelho do Ponto (horas + engajamento por semana). É PÚBLICO
+  // (não é segredo — a chave da service account fica em env var no backend).
+  // VAZIO = espelho desligado: o app salva normalmente no Supabase e só não
+  // envia ao Sheets. Preencher após criar/compartilhar a planilha (PLANO 3.4).
+  pontoSheetId: '',
 };
 
 // ============================================================================
@@ -63,4 +68,38 @@ window.MODULES = {
 // ============================================================================
 window.PLATFORM_CONFIG = {
   retencaoDesligamentoMeses: 6,
+
+  // ==========================================================================
+  // Documentos (termo de desligamento, contratos) — específico de CADA EJ.
+  // --------------------------------------------------------------------------
+  // Dados da EJ e signatários que entram nos documentos. Quando a diretoria
+  // mudar, basta atualizar `signatarios` aqui — o código não muda. Outra EJ que
+  // adotar a plataforma troca este bloco inteiro.
+  // ==========================================================================
+  documentos: {
+    empresa: {
+      razaoSocial: 'Integre Júnior Consultoria em Engenharia',
+      nomeCurto:   'Integre Júnior',
+      cnpj:        '26.154.689/0001-00',
+      endereco:    'Rua Eng. Udo Deeke, número 485, bairro Salto do Norte, Blumenau/SC',
+      cep:         '89037-000',
+      cidade:      'Blumenau',
+      estado:      'SC',
+    },
+    signatarios: {
+      // Quem "representa" a EJ no cabeçalho do termo de desligamento.
+      representanteTermo: 'Tiago Queiroz Borba',
+      // Assinaturas do termo de desligamento (nome + cargo).
+      termo: [
+        { nome: 'Tiago Queiroz Borba',               cargo: 'Diretor Presidente' },
+        { nome: 'Pedro Henrique Freire da Trindade',  cargo: 'Diretor Administrativo Financeiro' },
+      ],
+      // Assinaturas do contrato. Precisam de qualificação completa porque o
+      // contrato as descreve por extenso (RG/CPF/endereço).
+      contrato: [
+        { nome: 'Tiago Queiroz Borba', cargo: 'Diretor Presidente',          nacionalidade: 'brasileiro', estadoCivil: 'solteiro', profissao: 'estudante', rg: '544525188', cpf: '468.302.078-51', endereco: 'Rua Leopoldo Wilhelm, 310, Velha, Blumenau/SC, CEP 89045140' },
+        { nome: 'Lucas Sampaio Gomes', cargo: 'Diretor de Projetos e Pesquisa', nacionalidade: 'brasileiro', estadoCivil: 'solteiro', profissao: 'estudante', rg: '7953858',   cpf: '085.350.209-93', endereco: 'Rua Wilhelm Budag, 45, Velha, Blumenau/SC, CEP 89045-090' },
+      ],
+    },
+  },
 };

@@ -318,6 +318,13 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .tag.gray  { background: var(--gray-100); color: var(--gray-700); }
 .tag.red   { background: var(--red-100); color: var(--red-700); }
 
+/* Caixa de destaque clara (ex.: "Nossos Valores" no RNN). Equivale ao estilo
+   inline anterior; classe criada para o modo noturno poder amenizar o fundo e
+   manter o texto legível (ver seção MODO NOTURNO). */
+.accent-box { padding: 14px; background: var(--blue-50); border-radius: 8px; }
+.accent-box > b { color: var(--blue-700); }
+.accent-box-body { font-size: 13px; color: var(--gray-700); margin-top: 4px; }
+
 /* Tables */
 table { width: 100%; border-collapse: collapse; }
 th {
@@ -1353,3 +1360,23 @@ html.dark .sidebar {
 html.dark .toast { background: #2b333f; color: #f0f6fc; }
 /* Hover de linha de tabela visível sobre o fundo escuro. */
 html.dark tr:hover td { background: var(--gray-100); }
+
+/* Caixas claras de tom de marca (--blue-50): a rampa azul é preservada de
+   propósito, então elas ficavam BRANCAS demais no escuro. Amenizamos para um
+   off-white acinzentado (menos brilho/contraste à noite), mantendo-as claras. */
+html.dark .accent-box,
+html.dark .cap-col-header,
+html.dark .atividades-col-header { background: #d4d9e2; }
+/* No "Nossos Valores" o corpo era cinza-claro sobre fundo claro (ilegível no
+   escuro): texto passa para o tom escuro do tema. O título (--blue-700) já lê. */
+html.dark .accent-box-body { color: #1b2430; }
+
+/* Preview do contrato gerado dentro do app (#ct-preview). A versão impressa/PDF
+   tem seu próprio CSS embutido em imprimirTermo(); aqui só espelhamos o essencial
+   para o preview na tela ficar legível (títulos, rodapé e linhas de assinatura). */
+#ct-preview h1 { font-size: 18px; text-align: center; margin: 0 0 4px; }
+#ct-preview h2 { font-size: 14px; margin: 18px 0 6px; }
+#ct-preview .doc-meta { text-align: center; color: var(--gray-500); font-size: 12px; margin-bottom: 18px; }
+#ct-preview .doc-sign { margin-top: 36px; }
+#ct-preview .doc-sign .line { border-top: 1px solid var(--gray-700); width: 260px; margin: 36px auto 4px; }
+#ct-preview .doc-sign .who { text-align: center; font-size: 13px; color: var(--gray-700); }

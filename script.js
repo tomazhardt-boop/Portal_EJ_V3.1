@@ -813,6 +813,18 @@ function populateEditPerfil() {
   document.getElementById('edit-email').value = currentUser.email;
   document.getElementById('edit-date').value  = currentUser.entryDate;
   const cs = document.getElementById('edit-course'); if (cs) cs.value = currentUser.course;
+  // Dados pessoais (documentos): só o próprio membro vê/edita os seus.
+  const di = currentUser.docInfo || (currentUser.docInfo = {});
+  const en = di.endereco || (di.endereco = {});
+  const sv = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  sv('edit-genero', di.genero);            sv('edit-estadocivil', di.estadoCivil);
+  sv('edit-nacionalidade', di.nacionalidade); sv('edit-cpf', di.cpf);
+  sv('edit-rg', di.rg);                     sv('edit-orgao', di.orgaoEmissor);
+  sv('edit-data-entrada', di.dataEntrada);
+  sv('edit-end-rua', en.rua);              sv('edit-end-numero', en.numero);
+  sv('edit-end-apto', en.apartamento);     sv('edit-end-bairro', en.bairro);
+  sv('edit-end-cidade', en.cidade);        sv('edit-end-estado', en.estado);
+  sv('edit-end-cep', en.cep);
   populateCapSelect(); renderEditCaps();
 }
 
@@ -855,6 +867,22 @@ function saveEditPerfil() {
   if (email)  currentUser.email=email;
   if (date)   currentUser.entryDate=date;
   if (course) currentUser.course=course;
+  // Dados pessoais (documentos). Mutamos o docInfo existente (mesma referência de members[self]),
+  // sem reatribuir, para o espelho de syncSelfDocInfo continuar válido. Persistência: localStorage
+  // por ora (sem write-through ao Supabase: colunas entram na Fase 2 — ver document-engine-spec).
+  const di = currentUser.docInfo || (currentUser.docInfo = {});
+  di.endereco = di.endereco || {};
+  const gv = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  di.genero = gv('edit-genero');            di.estadoCivil = gv('edit-estadocivil');
+  di.nacionalidade = gv('edit-nacionalidade'); di.cpf = gv('edit-cpf');
+  di.rg = gv('edit-rg');                     di.orgaoEmissor = gv('edit-orgao');
+  di.dataEntrada = gv('edit-data-entrada');
+  di.endereco.rua = gv('edit-end-rua');     di.endereco.numero = gv('edit-end-numero');
+  di.endereco.apartamento = gv('edit-end-apto'); di.endereco.bairro = gv('edit-end-bairro');
+  di.endereco.cidade = gv('edit-end-cidade'); di.endereco.estado = gv('edit-end-estado');
+  di.endereco.cep = gv('edit-end-cep');
+  try { localStorage.setItem('perfil_docinfo:' + currentUser.email, JSON.stringify(di)); } catch (e) {}
+  dbSaveMyDocInfo(di);   // write-through ao Supabase (no-op offline); RPC só do próprio doc_info
   closeModal('modal-perfil-edit'); renderPerfil(); showToast('Perfil atualizado.');
 }
 
@@ -875,6 +903,38 @@ function openPhotoUpload() {
 function removePhoto() { currentUser.photo=null; localStorage.removeItem('perfil_photo'); renderPerfil(); showToast('Foto removida.'); }
 
 (function restorePhoto() { const s=localStorage.getItem('perfil_photo'); if(s) currentUser.photo=s; })();
+
+// Estrutura vazia dos dados pessoais (documentos) de um membro.
+function emptyDocInfo() {
+  return { cpf:'', rg:'', orgaoEmissor:'', estadoCivil:'', nacionalidade:'Brasileira',
+    genero:'', dataEntrada:'',
+    endereco: { rua:'', numero:'', apartamento:'', bairro:'', cidade:'', estado:'', cep:'' } };
+}
+
+// Normaliza o doc_info vindo do banco (jsonb, pode ser {} ou parcial) para a
+// forma completa que o app/engine espera (com endereco).
+function normDocInfo(raw) {
+  const d = emptyDocInfo();
+  if (raw && typeof raw === 'object') {
+    Object.assign(d, raw);
+    d.endereco = Object.assign(emptyDocInfo().endereco, raw.endereco || {});
+  }
+  return d;
+}
+
+// Carrega os dados pessoais salvos (localStorage, por e-mail) MUTANDO o docInfo do
+// membro logado — preserva a referência currentUser.docInfo === members[self].docInfo,
+// que é justamente o objeto que o termo/contrato lê.
+function restoreDocInfoInto(di, email) {
+  if (!di || !email) return;
+  try {
+    const s = localStorage.getItem('perfil_docinfo:' + email); if (!s) return;
+    const saved = JSON.parse(s) || {};
+    const savedEnd = saved.endereco || {}; delete saved.endereco;
+    Object.assign(di, saved);
+    di.endereco = Object.assign(di.endereco || {}, savedEnd);
+  } catch (e) {}
+}
 
 // Atualização 6: upload da logo da empresa pela sidebar (somente cargos autorizados).
 function openLogoUpload() {
@@ -2313,7 +2373,7 @@ function renderRNN() {
     </div>
     <div class="card"><div class="card-title">Nossos Valores</div>
       <div style="display:flex;flex-direction:column;gap:14px;">
-        ${valoresData.map(v=>`<div style="padding:14px;background:var(--blue-50);border-radius:8px;"><b style="color:var(--blue-700);">${gesc(v.titulo)}</b><div style="font-size:13px;color:var(--gray-700);margin-top:4px;">${gesc(v.body)}</div></div>`).join('')}
+        ${valoresData.map(v=>`<div class="accent-box"><b>${gesc(v.titulo)}</b><div class="accent-box-body">${gesc(v.body)}</div></div>`).join('')}
       </div>
     </div>`;
 }
@@ -2976,10 +3036,110 @@ function toggleStatusByName(name) {
     delete members[i].desligadoEm; delete members[i].excluirEm; delete members[i].desligamentoTipo;
   }
   dbUpdateMember(members[i], { status: members[i].status });
+  // Planilha: segue o status — Ativo volta p/ "Membros ativos", Inativo vai p/ "Ex-membros".
+  pontoSyncSheet(members[i].status === 'Ativo' ? 'restore' : 'move-exmembro', members[i].id || memberIdByName(members[i].name));
   saveState();
   if (document.getElementById('memb-table'))        renderMembros();
   if (document.getElementById('permissions-table')) renderPermissions();
   showToast(`${members[i].name} agora está ${members[i].status}.`);
+}
+
+// ============================================================================
+// MOTOR DE DOCUMENTOS (termo de desligamento, contrato) — ponte window.print().
+// ----------------------------------------------------------------------------
+// Modelos `{{campo}}` preenchidos a partir do cadastro do membro (docInfo) +
+// dados digitados na hora + config da EJ (window.PLATFORM_CONFIG.documentos).
+// Helpers: data por extenso, concordância de gênero, substituição com escape.
+// Depois migra para o motor Docs API + Drive (mesma interface de dados).
+// ============================================================================
+const MESES_PT = ['janeiro','fevereiro','março','abril','maio','junho',
+                  'julho','agosto','setembro','outubro','novembro','dezembro'];
+
+// Quebra uma data (ISO 'YYYY-MM-DD', Date ou string) em partes por extenso.
+// Parse manual do ISO para evitar o deslocamento de fuso do new Date('YYYY-MM-DD').
+function dataPorExtenso(v) {
+  let d;
+  if (v instanceof Date) d = v;
+  else if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) {
+    const [y, m, day] = v.slice(0, 10).split('-').map(Number); d = new Date(y, m - 1, day);
+  } else d = new Date(v);
+  if (isNaN(d)) return { dia: '', mes: '', ano: '', completa: '' };
+  const dia = String(d.getDate()), mes = MESES_PT[d.getMonth()], ano = String(d.getFullYear());
+  return { dia, mes, ano, completa: `${dia} de ${mes} de ${ano}` };
+}
+
+// ISO local (YYYY-MM-DD) de uma data, sem pular dia por causa do fuso (usado nos <input type=date>).
+function dateInputISO(d) {
+  const x = (d instanceof Date) ? d : new Date(d);
+  return new Date(x.getTime() - x.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+// Estado civil concordando com o gênero (para o {{Solteiro}} do termo).
+function estadoCivilGenero(estadoCivil, genero) {
+  const ec = (estadoCivil || '').trim(); if (!ec) return '';
+  if (ec === 'União estável') return 'em união estável';
+  if (genero === 'Feminino') {
+    const fem = { 'Solteiro':'Solteira','Casado':'Casada','Divorciado':'Divorciada','Viúvo':'Viúva','Separado':'Separada' };
+    return fem[ec] || ec;
+  }
+  return ec;
+}
+// inscrito/inscrita (contrato) conforme o gênero do representante.
+function inscritoGenero(genero) { return genero === 'Feminino' ? 'inscrita' : 'inscrito'; }
+
+// Substitui {{campo}} pelos valores do dicionário (com escape de HTML — os
+// valores são texto puro). Placeholder sem valor vira ''.
+function preencherModelo(template, dados) {
+  return template.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, k) => {
+    const v = dados[k];
+    return (v === undefined || v === null || v === '') ? '' : gesc(String(v));
+  });
+}
+
+function docCfg()         { return (window.PLATFORM_CONFIG && window.PLATFORM_CONFIG.documentos) || {}; }
+function docEmpresa()     { return docCfg().empresa || {}; }
+function docSignatarios() { return docCfg().signatarios || {}; }
+
+// Os 6 motivos oficiais do termo de desligamento (texto do Forms/estatuto).
+// `maConduta` separa saída voluntária/curso (false) das hipóteses disciplinares (true).
+const MOTIVOS_DESLIGAMENTO = [
+  { texto: 'Pela sua renúncia, mediante plena quitação de obrigações ou qualquer vínculo referente à Integre Júnior, desde que não esteja participando diretamente de alguma atividade que esteja pendente', maConduta: false },
+  { texto: 'Pela conclusão, abandono, saída para estágio ou jubilamento do curso da UFSC - Blumenau, em se tratando de membro efetivo', maConduta: false },
+  { texto: 'Por não cumprimento do Regimento Interno e/ou código de ética e conduta', maConduta: true },
+  { texto: 'Pelo não cumprimento das políticas de faltas ou de qualquer outra espécie votadas e estabelecidas em Assembleia Geral', maConduta: true },
+  { texto: 'Por decisão da assembleia geral convocada', maConduta: true },
+  { texto: 'Pelo não cumprimento do presente estatuto ou prática de qualquer ato contrário ao mesmo', maConduta: true },
+];
+
+// Modelo do termo (corpo). Espelha o PDF oficial; valores entram via preencherModelo.
+const TEMPLATE_TERMO = `
+<h1>TERMO DE DESLIGAMENTO</h1>
+<div class="doc-meta">{{razaoSocial}} · emitido em {{Dia}} de {{Mês}} de {{Ano}}</div>
+<div class="doc-body" style="white-space:normal;text-align:justify;">
+<p>Pelo presente instrumento, de um lado a {{razaoSocial}}, inscrita no CNPJ sob o nº. {{cnpj}}, sediada na {{sede}}, neste ato representado por {{representante}}, e de outro {{Nome}}, que desempenha a atividade de {{Cargo}}, entrou na {{razaoSocial}} no {{Dia entrada}} de {{Mês entrada}} de {{Ano entrada}} e se desligou no {{Dia desligamento}} de {{Mês desligamento}} de {{Ano desligamento}}, RG nº {{RG}}, CPF nº {{CPF}}, nacionalidade {{nacionalidade}}, {{Solteiro}}, com endereço pessoal situado à Rua {{Rua}}, número {{Numero}},{{Apartamento}} bairro {{Bairro}}, {{Cidade}}/{{Estado}}, CEP {{CEP}}, neste ato perde a condição de membro efetivo da {{razaoSocial}}, pelo seguinte motivo:</p>
+<p style="margin-left:24px;">{{Motivo}}</p>
+<p>Comprometendo-se a não utilizar informações referentes a documentos, metodologias e processos da empresa, para quaisquer fins não relacionados à mesma, sem prévia autorização da Diretoria vigente.</p>
+<p>E, por estarem de acordo, firma o presente instrumento em 2 (duas) vias de igual teor.</p>
+<p style="text-align:right;margin-top:28px;">{{CidadeEmpresa}}, {{Dia}} de {{Mês}} de {{Ano}}.</p>
+</div>`;
+
+// Lista os dados pessoais que faltam no cadastro para o termo sair completo.
+function camposFaltantesTermo(m) {
+  const di = m.docInfo || {}, en = di.endereco || {};
+  const req = [
+    ['CPF', di.cpf], ['RG', di.rg], ['estado civil', di.estadoCivil], ['gênero', di.genero],
+    ['data de entrada', di.dataEntrada], ['rua', en.rua], ['número', en.numero],
+    ['bairro', en.bairro], ['cidade', en.cidade], ['estado', en.estado], ['CEP', en.cep],
+  ];
+  return req.filter(([, v]) => !v || !String(v).trim()).map(([l]) => l);
+}
+
+// Bloco de assinaturas do termo: signatários da EJ (config) + o membro desligado.
+function assinaturasTermo(m) {
+  const cargo = (m.sector && m.sector !== '—') ? `${m.role} · ${m.sector}` : m.role;
+  const linhas = (docSignatarios().termo || [])
+    .map(s => `<div class="line"></div><div class="who">${gesc(s.nome)} — ${gesc(s.cargo)}</div>`).join('');
+  return `<div class="doc-sign">${linhas}<div class="line"></div><div class="who">${gesc(m.name)} — ${gesc(cargo)}</div></div>`;
 }
 
 function openDesligarMembro(name) {
@@ -2987,6 +3147,11 @@ function openDesligarMembro(name) {
   desligamentoCtx = { memberName: name };
   const lbl = document.getElementById('desl-membro-nome');
   if (lbl) lbl.textContent = name;
+  const sel = document.getElementById('desl-motivo');
+  if (sel) sel.innerHTML = '<option value="">— selecionar —</option>' +
+    MOTIVOS_DESLIGAMENTO.map((mo, i) => `<option value="${i}">${gesc(mo.texto)}</option>`).join('');
+  const dt = document.getElementById('desl-data');
+  if (dt) dt.value = dateInputISO(appToday());
   document.getElementById('modal-desligar').classList.add('active');
 }
 
@@ -2994,33 +3159,40 @@ function openDesligarMembro(name) {
 function retencaoMeses() { const n = Number(window.PLATFORM_CONFIG?.retencaoDesligamentoMeses); return Number.isFinite(n) && n > 0 ? n : 6; }
 function fmtData(v) { if (!v) return '—'; const d = (v instanceof Date) ? v : new Date(v); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR'); }
 
-// Executa o desligamento. Tipo: 'ma_conduta' ou 'normal' (as 4 sub-opções de
-// má conduta entram quando chegarem os templates oficiais).
+// Executa o desligamento a partir do motivo (1 dos 6 oficiais) e da data
+// escolhidos no modal.
 // Decisão de projeto (exclusão híbrida): desligar = SOFT — marca Inativo e
 // PRESERVA o registro/histórico. Um Inativo não consegue mais entrar (bloqueio
 // no login). Fica RECUPERÁVEL por `retencaoMeses()` meses (botão Ativar);
 // passado o prazo, o apagamento definitivo será feito por job server-side
 // (Fase de backend) — aqui só registramos as datas. Para apagar de vez
 // (teste/erro), use "Excluir permanentemente".
-async function executarDesligamento(tipo) {
+async function executarDesligamento() {
   if (!desligamentoCtx) return;
   const nome = desligamentoCtx.memberName;
-  const tituloDoc = tipo === 'ma_conduta' ? 'TERMO DE DESLIGAMENTO POR MÁ CONDUTA' : 'TERMO DE DESLIGAMENTO';
   const m = members.find(x => x.name === nome);
+  const sel = document.getElementById('desl-motivo');
+  const motivo = MOTIVOS_DESLIGAMENTO[sel ? Number(sel.value) : NaN];
+  if (!motivo) { showToast('Selecione o motivo do desligamento.'); return; }
+  const dInput = document.getElementById('desl-data');
+  const dataDeslISO = (dInput && dInput.value) ? dInput.value : dateInputISO(appToday());
   if (m) {
-    const hoje = appToday();
-    m.status           = 'Inativo';
-    m.desligadoEm      = hoje.toISOString();
-    m.desligamentoTipo = tipo;
-    m.excluirEm        = addMonths(hoje, retencaoMeses()).toISOString();
+    const faltando = camposFaltantesTermo(m);
+    if (faltando.length && !confirm(`Faltam dados pessoais de ${nome} para o termo:\n\n${faltando.join(', ')}\n\nO termo sairá com esses campos em branco. Continuar?`)) return;
+    const dataDesl = new Date(dataDeslISO + 'T00:00:00');
+    m.status             = 'Inativo';
+    m.desligadoEm        = dataDesl.toISOString();
+    m.desligamentoTipo   = motivo.maConduta ? 'ma_conduta' : 'normal';
+    m.desligamentoMotivo = motivo.texto;
+    m.excluirEm          = addMonths(dataDesl, retencaoMeses()).toISOString();
     await dbUpdateMember(m, { status: 'Inativo' });
+    pontoSyncSheet('move-exmembro', m.id || memberIdByName(m.name));  // planilha: ativos → ex-membros
     if (!sbClient) {  // fallback offline: também tira a credencial local
       const e = memberEmail(m); delete authData.byEmail[e]; delete authData.resetCodes[e]; saveAuth();
     }
     saveState();
-    // Gera o termo em PDF (modelo PROVISÓRIO — texto oficial entra com os
-    // templates). O desligamento vale mesmo se o usuário fechar a impressão.
-    gerarTermoDesligamento(m, tipo, tituloDoc);
+    // Gera o termo oficial em PDF. O desligamento vale mesmo se fechar a impressão.
+    gerarTermoDesligamento(m, motivo.texto, dataDeslISO);
   }
   desligamentoCtx = null;
   closeModal('modal-desligar');
@@ -3030,31 +3202,32 @@ async function executarDesligamento(tipo) {
   showToast(`${nome} desligado(a) — Inativo, recuperável até ${fmtData(m?.excluirEm)}.`);
 }
 
-// Gera o PDF do termo de desligamento. PROVISÓRIO: usa um texto-modelo genérico
-// só para o fluxo funcionar; será trocado pelos templates oficiais (1 saída
-// normal + 4 de má conduta) quando chegarem. Mesmo motor `imprimirTermo`.
-function gerarTermoDesligamento(m, tipo, titulo) {
-  const hoje = fmtData(appToday());
-  const motivo = tipo === 'ma_conduta' ? 'desligamento por má conduta' : 'desligamento (saída)';
-  const corpo = `
-    <h1>${gesc(titulo)}</h1>
-    <div class="doc-meta">Integre Jr · emitido em ${hoje}</div>
-    <div class="doc-body">[MODELO PROVISÓRIO — o texto oficial deste termo será inserido em breve.]
-
-Pelo presente instrumento, registra-se o ${motivo} do(a) membro(a) abaixo identificado(a):
-
-Nome: ${gesc(m.name)}
-Cargo: ${gesc(m.role)}${m.sector && m.sector !== '—' ? ' · ' + gesc(m.sector) : ''}
-E-mail: ${gesc(m.email || '—')}
-Data de entrada: ${gesc(m.entryDate || '—')}
-Data do desligamento: ${hoje}
-
-O acesso à plataforma fica imediatamente suspenso. O registro permanece recuperável até ${fmtData(m.excluirEm)}, quando será apagado em definitivo.</div>
-    <div class="doc-sign">
-      <div class="line"></div><div class="who">${gesc(m.name)} — membro(a) desligado(a)</div>
-      <div class="line"></div><div class="who">${gesc(currentUser.name)} — ${gesc(currentUser.role)}</div>
-    </div>`;
-  imprimirTermo(titulo, corpo);
+// Gera o PDF do termo oficial: preenche o modelo `{{campo}}` com os dados do
+// cadastro (docInfo) + motivo/data + config da EJ, e imprime via `imprimirTermo`.
+function gerarTermoDesligamento(m, motivoTexto, dataDeslISO) {
+  const di = m.docInfo || {}, en = di.endereco || {};
+  const emp = docEmpresa();
+  const entrada = dataPorExtenso(di.dataEntrada);
+  const desl    = dataPorExtenso(dataDeslISO);
+  const emiss   = dataPorExtenso(appToday());
+  const cargo   = (m.sector && m.sector !== '—') ? `${m.role} · ${m.sector}` : m.role;
+  const apto    = en.apartamento ? ` ${en.apartamento},` : '';
+  const sig     = docSignatarios();
+  const dados = {
+    'razaoSocial': emp.nomeCurto || 'Integre Júnior', 'cnpj': emp.cnpj || '', 'sede': emp.endereco || '',
+    'representante': sig.representanteTermo || (sig.termo && sig.termo[0] && sig.termo[0].nome) || '',
+    'CidadeEmpresa': emp.cidade || 'Blumenau',
+    'Nome': m.name, 'Cargo': cargo,
+    'Dia entrada': entrada.dia, 'Mês entrada': entrada.mes, 'Ano entrada': entrada.ano,
+    'Dia desligamento': desl.dia, 'Mês desligamento': desl.mes, 'Ano desligamento': desl.ano,
+    'RG': di.rg, 'CPF': di.cpf, 'nacionalidade': (di.nacionalidade || 'brasileira').toLowerCase(),
+    'Solteiro': estadoCivilGenero(di.estadoCivil, di.genero),
+    'Rua': en.rua, 'Numero': en.numero, 'Apartamento': apto, 'Bairro': en.bairro,
+    'Cidade': en.cidade, 'Estado': en.estado, 'CEP': en.cep,
+    'Motivo': motivoTexto,
+    'Dia': emiss.dia, 'Mês': emiss.mes, 'Ano': emiss.ano,
+  };
+  imprimirTermo('TERMO DE DESLIGAMENTO', preencherModelo(TEMPLATE_TERMO, dados) + assinaturasTermo(m));
 }
 
 // Exclusão PERMANENTE (hard delete). Apaga o registro do banco; as FKs limpam os
@@ -3129,134 +3302,285 @@ function removeTopicoCap(key) {
   showToast(`Tópico "${col.label}" removido.`);
 }
 
-// ============== CONTRATOS — Atualização 8 (item 6) ==============
-let contratoTextoAtual = '';
+// ============== CONTRATOS — geração de documento (motor {{campo}}) ==============
+let contratoHtmlAtual = '';
 
 function renderContratos() {
   const dataEl = document.getElementById('ct-data');
-  if (dataEl && !dataEl.value) dataEl.value = fmtDMY(appToday()); // data do contrato = hoje
-  ['ct-inicio', 'ct-entrega', 'ct-data'].forEach(id => maskDate(document.getElementById(id)));
+  if (dataEl && !dataEl.value) dataEl.value = dateInputISO(appToday()); // data do contrato = hoje
+  // Testemunhas: membros ativos assinam o contrato (CPF/RG vêm do cadastro).
+  const opts = '<option value="">— selecionar —</option>' +
+    members.filter(m => m.status === 'Ativo')
+      .map(m => `<option value="${gesc(m.name)}">${gesc(m.name)}</option>`).join('');
+  ['ct-test1', 'ct-test2'].forEach(id => { const s = document.getElementById(id); if (s) s.innerHTML = opts; });
+  const cont = document.getElementById('ct-parcelas');   // garante ao menos 1 linha
+  if (cont && !cont.children.length) addParcelaRow();
 }
 
-// Coleta os dados do formulário num objeto. (Ponto único para ajustar campos.)
+// Adiciona uma linha à tabela de parcelas (valor + vencimento digitados — decisão: manual).
+function addParcelaRow() {
+  const cont = document.getElementById('ct-parcelas'); if (!cont) return;
+  const row = document.createElement('div');
+  row.className = 'ct-parc-row';
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px;';
+  row.innerHTML =
+    '<input type="text" class="ct-parc-valor" placeholder="Valor (ex: 500,00 (quinhentos reais))" style="flex:2;" />' +
+    '<input type="date" class="ct-parc-venc" style="flex:1;" />' +
+    '<button type="button" class="btn btn-ghost" style="color:var(--red-700);padding:2px 8px;" onclick="this.parentNode.remove()">✕</button>';
+  cont.appendChild(row);
+}
+
+// Lê as linhas preenchidas da tabela de parcelas.
+function coletarParcelas() {
+  return Array.from(document.querySelectorAll('#ct-parcelas .ct-parc-row')).map(row => ({
+    valor: (row.querySelector('.ct-parc-valor')?.value || '').trim(),
+    venc:  (row.querySelector('.ct-parc-venc')?.value || '').trim(),
+  })).filter(p => p.valor || p.venc);
+}
+
+// Coleta os dados do formulário do contrato. Ponto único para ajustar campos.
 function coletarDadosContrato() {
   const val = id => (document.getElementById(id)?.value || '').trim();
-  const valorNum = parseFloat(document.getElementById('ct-valor')?.value);
   return {
-    clienteNome: val('ct-cliente-nome'), clienteDoc: val('ct-cliente-doc'),
-    clienteEnd: val('ct-cliente-end'), clienteRep: val('ct-cliente-rep'),
-    clienteContato: val('ct-cliente-contato'),
-    objeto: val('ct-objeto'), valor: isNaN(valorNum) ? 0 : valorNum,
-    pagamento: val('ct-pagamento'), inicio: val('ct-inicio'),
-    entrega: val('ct-entrega'), cidade: val('ct-cidade'), data: val('ct-data'),
+    // Contratante — empresa
+    empNome: val('ct-emp-nome'), empCnpj: val('ct-emp-cnpj'),
+    empRua: val('ct-emp-rua'), empNum: val('ct-emp-numero'), empBairro: val('ct-emp-bairro'),
+    empCidUf: val('ct-emp-ciduf'), empCep: val('ct-emp-cep'),
+    // Representante
+    repNome: val('ct-rep-nome'), repGenero: val('ct-rep-genero'),
+    repNac: val('ct-rep-nac'), repEstCiv: val('ct-rep-estciv'), repProf: val('ct-rep-prof'),
+    repRg: val('ct-rep-rg'), repOrgao: val('ct-rep-orgao'), repCpf: val('ct-rep-cpf'),
+    repRua: val('ct-rep-rua'), repNum: val('ct-rep-numero'), repBairro: val('ct-rep-bairro'),
+    repCidUf: val('ct-rep-ciduf'), repCep: val('ct-rep-cep'),
+    // Projeto
+    tipo: val('ct-tipo'), servico: val('ct-servico'), plataforma: val('ct-plataforma'),
+    prazo: val('ct-prazo'), infoInicio: val('ct-infoinicio'),
+    montante: val('ct-montante'), formaPg: val('ct-formapg'),
+    // Testemunhas + data + parcelas
+    test1: val('ct-test1'), test2: val('ct-test2'), data: val('ct-data'),
+    parcelas: coletarParcelas(),
   };
 }
 
-// Monta o TEXTO do contrato de PRESTAÇÃO DE SERVIÇOS. PLACEHOLDER — trocar pelo template oficial depois.
-function montarContratoServico(d) {
-  const fmtR = n => 'R$ ' + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  const ou = (v, alt) => v || alt;
-  return [
-    'CONTRATO DE PRESTAÇÃO DE SERVIÇOS',
-    '',
-    'CONTRATADA: Integre Jr — Empresa Júnior de Engenharia de Controle e Automação (UFSC).',
-    `CONTRATANTE: ${ou(d.clienteNome, '____________________')}`
-      + (d.clienteDoc ? `, inscrita sob ${d.clienteDoc}` : '')
-      + (d.clienteEnd ? `, com sede em ${d.clienteEnd}` : '')
-      + (d.clienteRep ? `, neste ato representada por ${d.clienteRep}` : '') + '.',
-    '',
-    'CLÁUSULA 1ª — DO OBJETO',
-    ou(d.objeto, '____________________'),
-    '',
-    'CLÁUSULA 2ª — DO VALOR E PAGAMENTO',
-    `O valor total dos serviços é de ${fmtR(d.valor)}, na forma: ${ou(d.pagamento, 'a combinar')}.`,
-    '',
-    'CLÁUSULA 3ª — DO PRAZO',
-    `Início em ${ou(d.inicio, '__/__/____')} e entrega prevista para ${ou(d.entrega, '__/__/____')}.`,
-    '',
-    'CLÁUSULA 4ª — DO FORO',
-    `Fica eleito o foro da comarca de ${ou(d.cidade, '____________')} para dirimir dúvidas deste contrato.`,
-    '',
-    `${ou(d.cidade, '____________')}, ${ou(d.data, '__/__/____')}.`,
-    '',
-    '_______________________________        _______________________________',
-    'Integre Jr (Contratada)                ' + ou(d.clienteNome, 'Contratante'),
-  ].join('\n');
+// Qualificação da CONTRATADA (EJ) montada a partir dos signatários da config —
+// é o trecho "neste ato representada por seu diretor presidente, ...".
+function qualificacaoContratada() {
+  const sigs = docSignatarios().contrato || [];
+  return sigs.map((s, i) => {
+    const cargo = s.cargo || '';
+    const lig = i === 0 ? `neste ato representada por seu ${cargo.toLowerCase()}, ` : `e pelo ${cargo}, `;
+    return `${lig}${s.nome}, ${s.nacionalidade || 'brasileiro'}, ${s.estadoCivil || 'solteiro'}, ${s.profissao || 'estudante'}, portador do RG nº ${s.rg || '—'}, inscrito no CPF sob nº ${s.cpf || '—'}, residente e domiciliado na ${s.endereco || '—'}`;
+  }).join(', ');
 }
 
-// Monta o TEXTO do contrato de PATROCÍNIO. PLACEHOLDER — template oficial vem depois.
-function montarContratoPatrocinio(d) {
-  const fmtR = n => 'R$ ' + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  const ou = (v, alt) => v || alt;
-  return [
-    'CONTRATO DE PATROCÍNIO',
-    '(Modelo provisório — aguardando template oficial.)',
-    '',
-    `PATROCINADOR: ${ou(d.clienteNome, '____________________')}`
-      + (d.clienteDoc ? `, inscrito sob ${d.clienteDoc}` : '')
-      + (d.clienteEnd ? `, com sede em ${d.clienteEnd}` : '')
-      + (d.clienteRep ? `, neste ato representado por ${d.clienteRep}` : '') + '.',
-    'PATROCINADA: Integre Jr — Empresa Júnior de Engenharia de Controle e Automação (UFSC).',
-    '',
-    'CLÁUSULA 1ª — DO OBJETO',
-    'Apoio financeiro/institucional ao seguinte projeto/evento:',
-    ou(d.objeto, '____________________'),
-    '',
-    'CLÁUSULA 2ª — DO VALOR DO PATROCÍNIO',
-    `Valor total: ${fmtR(d.valor)}. Forma de repasse: ${ou(d.pagamento, 'a combinar')}.`,
-    '',
-    'CLÁUSULA 3ª — DA VIGÊNCIA',
-    `Início em ${ou(d.inicio, '__/__/____')}; término previsto em ${ou(d.entrega, '__/__/____')}.`,
-    '',
-    'CLÁUSULA 4ª — DAS CONTRAPARTIDAS',
-    '[A definir conforme template oficial: divulgação, presença de marca, materiais, etc.]',
-    '',
-    'CLÁUSULA 5ª — DO FORO',
-    `Comarca de ${ou(d.cidade, '____________')}.`,
-    '',
-    `${ou(d.cidade, '____________')}, ${ou(d.data, '__/__/____')}.`,
-    '',
-    '_______________________________        _______________________________',
-    ou(d.clienteNome, 'Patrocinador') + '                Integre Jr (Patrocinada)',
-  ].join('\n');
+// Tabela de parcelas (HTML) a partir das linhas digitadas.
+function buildTabelaParcelas(parcelas) {
+  const cell = 'border:1px solid #374151;padding:6px 10px;font-size:13px;text-align:left;';
+  const head = `<tr><th style="${cell}">Parcela</th><th style="${cell}">Valor</th><th style="${cell}">Vencimento</th></tr>`;
+  const rows = (parcelas && parcelas.length) ? parcelas : [];
+  const body = rows.length
+    ? rows.map((p, i) => `<tr><td style="${cell}">${i + 1}ª</td><td style="${cell}">${gesc(p.valor)}</td><td style="${cell}">${gesc(p.venc ? p.venc.split('-').reverse().join('/') : '')}</td></tr>`).join('')
+    : `<tr><td colspan="3" style="${cell}text-align:center;color:#6b7280;">— sem parcelas informadas —</td></tr>`;
+  return `<table style="border-collapse:collapse;width:100%;margin:10px 0;">${head}${body}</table>`;
+}
+
+// Bloco de assinaturas do contrato: EJ (diretores da config) + CONTRATANTE +
+// 2 testemunhas (membros) com CPF/RG vindos do cadastro.
+function buildAssinaturasContrato(d) {
+  const emp = docEmpresa();
+  const dirHtml = (docSignatarios().contrato || [])
+    .map(s => `<div class="who" style="margin:0 18px;"><b>${gesc(s.nome)}</b><br>${gesc(s.cargo)}</div>`).join('');
+  const tInfo = (name) => {
+    const m = members.find(x => x.name === name), di = (m && m.docInfo) || {};
+    return `${gesc(name || '—')}<br>CPF: ${gesc(di.cpf || '—')} · RG: ${gesc(di.rg || '—')}`;
+  };
+  return `
+  <div class="doc-sign" style="margin-top:48px;">
+    <div style="text-align:center;font-weight:700;margin-bottom:8px;">${gesc(emp.nomeCurto || 'Integre Júnior')}</div>
+    <div style="display:flex;justify-content:center;flex-wrap:wrap;margin-bottom:28px;">${dirHtml}</div>
+    <div class="line"></div><div class="who">${gesc(d.empNome || d.repNome || 'CONTRATANTE')}</div>
+    <div class="who">${gesc(d.repNome || '')}${d.repProf ? ' — ' + gesc(d.repProf) : ''}</div>
+    <div style="display:flex;justify-content:space-between;gap:24px;margin-top:36px;flex-wrap:wrap;">
+      <div class="who" style="text-align:left;">TESTEMUNHA 01: ${tInfo(d.test1)}</div>
+      <div class="who" style="text-align:left;">TESTEMUNHA 02: ${tInfo(d.test2)}</div>
+    </div>
+  </div>`;
+}
+
+// Modelo do contrato de prestação de serviços (espelha o PDF oficial).
+// Valores entram via preencherModelo (escapados); tabela e assinaturas via
+// sentinelas <!--TABELA_PARCELAS--> / <!--ASSINATURAS--> (HTML, não escapado).
+const TEMPLATE_CONTRATO = `
+<h1>CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
+<div class="doc-body" style="white-space:normal;text-align:justify;">
+<p>Pelo presente instrumento particular, de um lado {{Nome Fantasia}}, com sede na Rua {{Rua}}, {{Número}}, Bairro {{Bairro}}, {{Cidade/Estado}}, CEP {{CEP da Empresa}}, inscrita no CNPJ sob o nº {{CNPJ}}, neste ato representado por {{Nome completo}}, {{Nacionalidade}}, {{Estado civil}}, {{Profissão}}, {{portador}} do RG nº {{RG}}, {{Órgão emissor}}, {{inscrito}} no CPF sob n° {{CPF}}, residente e domiciliado na Rua {{Rua do representante}}, {{Número do representante}}, Bairro {{Bairro do representante}}, {{Cidade/Estado do representante}}, CEP {{CEP do representante}}, doravante denominada <b>CONTRATANTE</b>.</p>
+<p>E, de outro, <b>{{razaoSocialContratada}}</b>, ou simplesmente <b>{{nomeCurtoContratada}}</b>, associação civil de fins não econômicos, inscrita no CNPJ sob nº {{cnpjContratada}}, com sede na {{sedeContratada}}, {{qualificacaoContratada}}, doravante denominada <b>CONTRATADA</b>.</p>
+<p><b>CONSIDERANDO</b></p>
+<p>1) Que tem-se por Empresa Júnior a entidade organizada nos termos da Lei nº 13.267 de 06 de abril de 2016, sob a forma de associação civil sem fins econômicos, gerida, obrigatória e exclusivamente, por estudantes regularmente matriculados em curso de graduação em instituição de ensino superior;</p>
+<p>2) Que uma Empresa Júnior tem como objetivo estimular o espírito empreendedor e promover o desenvolvimento técnico, acadêmico, pessoal e profissional de seus membros por meio de contato direto com a realidade do mercado de trabalho, desenvolvendo atividades de consultoria e de assessoria a empresários e empreendedores, além de promover o desenvolvimento econômico e social da comunidade em geral;</p>
+<p>3) Que a CONTRATADA é uma Empresa Júnior que abrange a área da engenharia de controle automação, materiais e têxtil, conforme indica seu Estatuto Social, devidamente regulamentada e de acordo com a legislação vigente;</p>
+<p>4) Que a CONTRATADA desenvolve suas atividades no interior da Universidade Federal de Santa Catarina (UFSC), estando por ela autorizada para tal, nos termos do Estatuto, Regimento Interno, provida de gestão autônoma em relação à direção da respectiva faculdade e de qualquer outra entidade acadêmica;</p>
+<p>5) Que os integrantes da CONTRATADA exercem trabalho voluntário, nos termos da Lei n° 9.608, de 18 de fevereiro de 1998;</p>
+<p>6) Que as atividades desenvolvidas pela CONTRATADA são orientadas e supervisionadas por professores orientadores especializados;</p>
+<p>7) Que a renda obtida pela CONTRATADA com os projetos e serviços prestados é revertida exclusivamente para o incremento das atividades-fim da empresa;</p>
+<p>Têm entre si justo e acordado o presente Contrato de Prestação de Serviços, o qual reger-se-á pelas disposições a seguir, desde já aceitas irrestrita e mutuamente pelas partes:</p>
+<h2>CAPÍTULO I - OBJETO</h2>
+<p>1.1. A CONTRATADA, enquanto prestadora de serviços relacionados à área de consultoria em Engenharia de Controle Automação, Materiais e Têxtil, deverá entregar o projeto abaixo listado, conforme o prazo a ser estipulado no Capítulo II, mediante a devida remuneração pela parte CONTRATANTE:</p>
+<p style="margin-left:24px;">a. Desenvolvimento de {{Serviço Prestado}} para a CONTRATANTE {{Plataforma}}</p>
+<p>1.2. A CONTRATADA prestará os serviços constantes neste instrumento contratual sem qualquer exclusividade, desempenhando atividades para terceiros em geral, desde que não haja conflito de interesses com o pactuado no presente contrato.</p>
+<p style="margin-left:24px;">1.2.1. Da mesma forma, a CONTRATANTE poderá contratar outros profissionais ou empresas para prestar os serviços constantes no objeto deste contrato sem qualquer exclusividade, desde que não haja conflito de interesses.</p>
+<h2>CAPÍTULO II - DETALHAMENTO DA EXECUÇÃO</h2>
+<p>2.1. O prazo total para execução do serviço listado no "item 1.1" é de {{Prazo de execução}} dias úteis.</p>
+<p>{{Informações necessárias para início do Projeto}}</p>
+<p>2.2. A fim de delimitar da maneira mais exata possível o objeto deste contrato, para que fique claro quais tipos de atividades estão contidos nas obrigações assumidas pela CONTRATADA no "capítulo I", será elaborado por esta um documento em separado, o qual, desde já, se considera como anexo ao presente contrato de prestação de serviços, denominado "Termo de Abertura do Projeto", o qual explicitará as etapas de realização dos serviços, seu cronograma e seu valor agregado.</p>
+<p style="margin-left:24px;">2.2.1. A CONTRATANTE terá acesso ao "Termo de Abertura do Projeto" elaborado e ficará ciente das etapas estipuladas pela CONTRATADA para a execução da consultoria.</p>
+<p>2.3. Caso a CONTRATANTE deseje a realização de qualquer serviço ou etapa diferente daquelas mencionadas no âmbito deste contrato ou do Termo de Abertura do Projeto, deverá solicitar sua execução por meio de uma nova contratação e contraprestação pelo serviço, ou por meio da formalização de aditivo contratual, na forma especificada pelo "item 12.6".</p>
+<p>2.4. A CONTRATADA não está obrigada a realizar qualquer serviço diferente daqueles mencionados neste instrumento contratual, ainda que correlatos à execução do objeto principal.</p>
+<p>2.5. A CONTRATADA não está obrigada a prestar serviços à pessoa diferente da CONTRATANTE, ainda que está o solicite, tendo em vista que somente existe vínculo obrigacional entre as partes constantes neste instrumento contratual.</p>
+<p>2.6. A CONTRATADA não é responsável pela aplicação prática do projeto, mas tão somente por seu desenvolvimento.</p>
+<h2>CAPÍTULO III - OBRIGAÇÕES DA CONTRATADA</h2>
+<p>3.1. Compete à CONTRATADA, após a assinatura deste instrumento, as seguintes obrigações:</p>
+<p style="margin-left:24px;">3.1.1. Executar os serviços contratados dentro da boa técnica e dos costumes usuais em trabalhos do gênero, zelando pela boa qualidade das ações e serviços prestados e buscando alcançar eficiência, eficácia, transparência e efetividade em suas atividades;</p>
+<p style="margin-left:24px;">3.1.2. Observar as orientações da CONTRATANTE, desde que não sejam contrárias à boa prática, legislação aplicável, boa-fé ou ética, elaboradas com base no acompanhamento e supervisão;</p>
+<p style="margin-left:24px;">3.1.3. Cumprir para com o prazo estabelecido no "item 2.1";</p>
+<p style="margin-left:24px;">3.1.4. Tomar todas as precauções e cuidados para garantir a segurança dos envolvidos na execução deste contrato;</p>
+<p style="margin-left:24px;">3.1.5. Comunicar imediatamente ao representante da CONTRATANTE a ocorrência de qualquer impedimento à execução dos serviços.</p>
+<h2>CAPÍTULO IV - DIREITOS DA CONTRATADA</h2>
+<p>4.1. São direitos da CONTRATADA:</p>
+<p style="margin-left:24px;">4.1.1. Na finalização da prestação dos serviços, solicitar que a CONTRATANTE assine uma declaração de que o contrato está findo, sendo consideradas as obrigações da CONTRATADA integralmente quitadas a partir de então.</p>
+<p style="margin-left:24px;">4.1.2. Suspender, independentemente de notificação, a prestação dos serviços até o devido adimplemento, isenta de qualquer responsabilidade pelo atraso do projeto, na hipótese de atraso no repasse de recursos da CONTRATANTE à CONTRATADA, tanto em razão do pagamento dos serviços de consultoria como do pagamento das despesas necessárias à execução dos serviços.</p>
+<p style="margin-left:24px;">4.1.3. Aumentar o prazo para entrega do projeto, quando tal aumento não frustrar a finalidade do objeto do contrato, mediante a concordância da CONTRATANTE, se, diante de análise própria verificar que a execução do projeto não está transcorrendo na velocidade esperada.</p>
+<h2>CAPÍTULO V - OBRIGAÇÕES DA CONTRATANTE</h2>
+<p>5.1. Compete à CONTRATANTE, após a assinatura deste instrumento, as seguintes obrigações:</p>
+<p style="margin-left:24px;">5.1.1. Não transferir a terceiros os direitos e obrigações acerca do(s) serviço(s) ajustado(s) por meio do presente contrato.</p>
+<p style="margin-left:24px;">5.1.2. Permitir ao pessoal técnico da CONTRATADA, encarregado da execução do objeto, livre acesso às instalações necessárias para a prestação do serviço.</p>
+<p style="margin-left:24px;">5.1.3. Remunerar a CONTRATADA pelos serviços prestados nos termos estabelecidos no "Capítulo VI", cumprindo fielmente os prazos e a forma definidos neste instrumento.</p>
+<p style="margin-left:24px;">5.1.4. Prestar o apoio necessário à CONTRATADA para que seja alcançado o objetivo deste instrumento contratual em toda sua extensão.</p>
+<p style="margin-left:24px;">5.1.5. Fornecer as informações e meios necessários para realização das atividades previstas, assim que solicitados pela CONTRATADA.</p>
+<p style="margin-left:24px;">5.1.6. Manter suas informações de contato (endereço, e-mail e telefones) indicadas na qualificação, devidamente atualizadas, bem como verificar periodicamente seu correio eletrônico, meio pelo qual serão enviadas informações e notificações relativas ao projeto descrito no presente documento.</p>
+<p style="margin-left:24px;">5.1.7. Ler e, quando for o caso, responder a todos os e-mails enviados pela CONTRATADA.</p>
+<p style="margin-left:48px;">5.1.7.1. Os e-mails serão considerados recebidos e lidos após 24 horas de envio nos dias úteis, ainda que não haja resposta pela CONTRATANTE.</p>
+<p style="margin-left:24px;">5.1.8. Firmar declaração, em favor da CONTRATADA, de que o contrato está findo, mediante o pedido desta, quando for o caso.</p>
+<p style="margin-left:24px;">5.1.9. Caso a CONTRATANTE receba notificação, intimação ou citação de quaisquer tipos, referentes a procedimentos judiciais ou extrajudiciais que envolvam o objeto deste pacto, informar a CONTRATADA sobre os andamentos dos respectivos feitos.</p>
+<p>5.2. O atraso, por parte da CONTRATANTE, na entrega de documentos, informações, recursos ou quaisquer outros elementos necessários para a boa prestação dos serviços e para a continuidade da consultoria suspenderá o prazo contratual, independentemente de notificação, pelo tempo equivalente da indisponibilidade ou atraso, e eximirá a responsabilidade da CONTRATADA pela entrega final dos serviços contratados dentro do prazo convencionado.</p>
+<p>5.3. Após o protótipo entregue à contratante, a mesma tem o dever de alegar em no prazo máximo de 2 semanas a posição final quanto à execução do projeto. Após esse período, fica a dever da contratada enviar o Termo de Consentimento de Projeto para assim firmar o vínculo contratual.</p>
+<h2>CAPÍTULO VI - VALORES E FORMAS DE PAGAMENTO</h2>
+<p>6.1. A CONTRATANTE realizará o pagamento, em favor da CONTRATADA, no montante de R$ {{Montante}}, sendo este o valor do Projeto.</p>
+<p style="margin-left:24px;">6.1.1. O pagamento estabelecido será realizado {{Forma de pagamento}}, conforme o cronograma abaixo:</p>
+<!--TABELA_PARCELAS-->
+<p>6.2. O pagamento estabelecido no presente capítulo será realizado por meio de boleto bancário emitido pela CONTRATADA e enviado à CONTRATANTE em até 2 (dois) dias úteis antes da data de vencimento da respectiva parcela.</p>
+<p>6.4. Em caso de atraso no pagamento de qualquer das parcelas, ao valor devido e não pago será acrescida multa de 2% sobre o valor atualizado do débito pela variação positiva do índice IGP-M/FGV e juros de mora de 1% ao mês ou fração pro rata temporis (proporcional ao tempo), desde a data do vencimento até a data do efetivo adimplemento.</p>
+<p>6.5. O atraso no pagamento de uma parcela por um prazo superior a 30 dias implicará no vencimento antecipado de todas as demais parcelas.</p>
+<p>6.6. Quando ocorrerem, as despesas administrativas extraordinárias (material expediente, segurança, diária, despesas de viagem etc.), deverão ser custeadas pela CONTRATANTE, mediante seu prévio e expresso consentimento, ficando a CONTRATADA responsável por entrar em contato a fim de obter a necessária autorização.</p>
+<h2>CAPÍTULO VII - USO DE IMAGEM</h2>
+<p>7.1. É permitida a divulgação pela CONTRATADA do nome da CONTRATANTE como sua cliente, bem como imagens, ilustrações e resultados do projeto desenvolvido, para fins acadêmicos e comerciais, sem nenhum ônus para a CONTRATADA, em material de publicidade e propaganda, salvo disposição em contrário.</p>
+<p>7.2. É permitido que a CONTRATADA inclua no produto final uma referência de que ela o desenvolveu.</p>
+<h2>CAPÍTULO VIII - PROPRIEDADE INTELECTUAL E SIGILO</h2>
+<p>8.1. Os estudos, projetos, relatórios e demais dados desenvolvidos pela CONTRATADA em razão dos serviços ora contratados, ainda que inacabados, serão de propriedade exclusiva da CONTRATANTE, que poderá registrá-los nos órgãos competentes e utilizá-los ou cedê-los sem qualquer restrição ou custo adicional.</p>
+<p>8.2. A CONTRATADA se compromete a manter o sigilo sobre quaisquer dados, materiais, documentos, informações, especificações técnicas ou comerciais, inovações ou aperfeiçoamentos envolvidos com a propriedade intelectual da CONTRATANTE, de que venham a ter acesso ou conhecimento, ou que lhes sejam confiadas em razão do desenvolvimento dos serviços relacionados a este instrumento contratual, salvo se houver consentimento expresso por parte da CONTRATANTE em sentido contrário.</p>
+<h2>CAPÍTULO IX - DESCUMPRIMENTO DAS OBRIGAÇÕES E RESCISÃO</h2>
+<p>9.1. O contrato poderá ser rescindido, mediante prévia e motivada notificação, extinguindo, a partir de então, a relação obrigacional, quando houver:</p>
+<p style="margin-left:24px;">a. Mora da CONTRATANTE no pagamento de quaisquer parcelas avençadas por período superior a 60 (sessenta) dias;</p>
+<p style="margin-left:24px;">b. Desídia injustificada da CONTRATADA no cumprimento do objeto do presente contrato, por período superior a 60 (sessenta) dias corridos além do prazo máximo estipulado no "item 2.1";</p>
+<p style="margin-left:24px;">c. Atraso, pela CONTRATANTE, no repasse de informações, documentos ou materiais necessários para o prosseguimento da execução dos serviços, por período superior a 30 dias;</p>
+<p style="margin-left:24px;">d. Descumprimento de outras obrigações contratuais de forma culposa e reiterada, cabendo à parte prejudicada reclamar a rescisão.</p>
+<p>9.2. Para os efeitos deste contrato, considera-se rescisão a faculdade de se extinguir o contrato devido a descumprimento contratual por conduta culposa de uma das partes.</p>
+<p>9.3. No caso do subitem "c" e "d" do item "9.1", a parte incorrerá na obrigação de pagar multa compensatória na razão de 20% sobre o valor total do contrato, independentemente de ter havido rescisão, assegurado o direito de pleitear-se eventual indenização suplementar, caso comprovado o prejuízo excedente em juízo, ficando ressalvado que, quando houver rescisão, a parte inocente não será obrigada a devolver valores, materiais ou serviços já recebidos da outra.</p>
+<p>9.4. No caso da hipótese descrita no subitem "c", além da multa compensatória descrita acima, será devida também multa moratória, no valor de R$ 50,00 por dia que exceder o 30º dia de atraso.</p>
+<h2>CAPÍTULO X - RESILIÇÃO</h2>
+<p>10.1. Qualquer das partes poderá resilir o contrato antes de que esteja completamente finalizada a prestação dos serviços.</p>
+<p style="margin-left:24px;">10.1.1. Por resilição entende-se a desistência unilateral e imotivada no prosseguimento da relação contratual.</p>
+<p>10.2. Apenas será reputada eficaz a resilição mediante o envio de notificação escrita ao endereço eletrônico ou físico da CONTRATADA indicado no presente contrato, mediante aviso prévio de 8 (oito) dias corridos.</p>
+<p>10.3. O presente contrato poderá ser rescindido por qualquer das partes dentro do período contratado, devendo, todavia, ser pago o período efetivamente trabalhado ou entregues as etapas já finalizadas do serviço, e mediante notificação à outra, com antecedência mínima de 30 (trinta) dias. Ainda, no caso de resilição antecipada, as partes se obrigam ao pagamento de multa no percentual de 20% sobre o valor total do contrato, a ser paga até 10 (dez) dias úteis após a notificação da parte contrária.</p>
+<p style="margin-left:24px;">10.3.1 Sendo assegurado à CONTRATANTE o direito de pleitear, judicialmente, eventual indenização complementar, se comprovar o prejuízo suportado.</p>
+<p style="margin-left:24px;">10.3.2 Sendo assegurado à CONTRATADA eventual direito a indenização complementar, a ser pleiteada judicialmente, a título de compensação por perdas e danos sofridos, desde que comprovados.</p>
+<h2>CAPÍTULO XI - EXTINÇÃO DO CONTRATO</h2>
+<p>11.1. São hipóteses de extinção do presente instrumento contratual:</p>
+<p style="margin-left:24px;">a. A conclusão dos serviços contratados aliada ao devido pagamento;</p>
+<p style="margin-left:24px;">b. A rescisão, nos termos do "Capítulo IX";</p>
+<p style="margin-left:24px;">c. A resilição, nos termos do "Capítulo X";</p>
+<p style="margin-left:24px;">d. A extinção da personalidade jurídica de qualquer uma das Partes;</p>
+<p style="margin-left:24px;">e. A impossibilidade da execução dos serviços contratados por motivos de caso fortuito ou força maior.</p>
+<h2>CAPÍTULO XII - DISPOSIÇÕES FINAIS</h2>
+<p>12.1. Aplicar-se-ão nas partes omissas deste contrato de prestação de serviços o que prevê o Código Civil Brasileiro, Lei nº 10.406/2002.</p>
+<p>12.2. Concordam e aceitam ambas as partes que o presente instrumento se trata de um título executivo extrajudicial conforme disposto no artigo 784 do Código de Processo Civil, Lei nº 13.105/2015.</p>
+<p>12.3. Caso venham a ser consideradas nulas ou sejam anuladas cláusulas do presente contrato através de decisão judicial, não serão consideradas da mesma forma as demais disposições do presente instrumento.</p>
+<p>12.4. A CONTRATADA reconhece que não estabelecerá qualquer vínculo empregatício entre o CONTRATANTE e os consultores ou orientadores externos designados para auxílio ou supervisão na execução dos serviços do objeto deste contrato.</p>
+<p>12.5. Se, durante o período em que a CONTRATADA estiver prestando o serviço contrato novas demandas surjam por parte do CONTRATANTE, far-se-á um aditivo no presente instrumento a fim de formalizar o incremento nas obrigações de ambas as partes contratantes.</p>
+<p>12.6. O não exercício por qualquer das partes de quaisquer direitos ou faculdades que lhes sejam conferidos por este contrato ou por lei, bem como a eventual tolerância contra infrações contratuais cometidas pela outra parte, não importará na renúncia dos seus direitos contratuais ou legais, novação ou alteração de cláusulas deste contrato, podendo a parte, a seu exclusivo critério, exercê-los a qualquer momento.</p>
+<p>Sendo assim, por estarem ambas as partes contratantes justas e acordadas pelas disposições que constam no presente instrumento, assinam-no em 1 (uma) via de mesma forma, na presença de 2 (duas) testemunhas e de igual teor para que este produza os efeitos jurídicos e legais.</p>
+<p style="text-align:right;margin-top:24px;">{{CidadeEmpresa}}, {{data}}.</p>
+</div>
+<!--ASSINATURAS-->`;
+
+// Monta o HTML do contrato de prestação de serviços a partir do formulário.
+function montarContratoServico(d) {
+  const emp = docEmpresa();
+  const dados = {
+    // Contratante — empresa
+    'Nome Fantasia': d.empNome, 'Rua': d.empRua, 'Número': d.empNum, 'Bairro': d.empBairro,
+    'Cidade/Estado': d.empCidUf, 'CEP da Empresa': d.empCep, 'CNPJ': d.empCnpj,
+    // Representante
+    'Nome completo': d.repNome, 'Nacionalidade': d.repNac, 'Estado civil': d.repEstCiv,
+    'Profissão': d.repProf, 'RG': d.repRg, 'Órgão emissor': d.repOrgao, 'CPF': d.repCpf,
+    'portador': d.repGenero === 'Feminino' ? 'portadora' : 'portador',
+    'inscrito': inscritoGenero(d.repGenero),
+    'Rua do representante': d.repRua, 'Número do representante': d.repNum,
+    'Bairro do representante': d.repBairro, 'Cidade/Estado do representante': d.repCidUf,
+    'CEP do representante': d.repCep,
+    // CONTRATADA (EJ, via config)
+    'razaoSocialContratada': emp.razaoSocial || 'Integre Júnior',
+    'nomeCurtoContratada': emp.nomeCurto || 'Integre Júnior',
+    'cnpjContratada': emp.cnpj || '', 'sedeContratada': emp.endereco || '',
+    'qualificacaoContratada': qualificacaoContratada(),
+    // Projeto
+    'Serviço Prestado': d.servico, 'Plataforma': d.plataforma, 'Prazo de execução': d.prazo,
+    'Informações necessárias para início do Projeto': d.infoInicio,
+    'Montante': d.montante, 'Forma de pagamento': d.formaPg,
+    'CidadeEmpresa': emp.cidade || 'Blumenau',
+    'data': d.data ? dataPorExtenso(d.data).completa : '',
+  };
+  return preencherModelo(TEMPLATE_CONTRATO, dados)
+    .replace('<!--TABELA_PARCELAS-->', buildTabelaParcelas(d.parcelas))
+    .replace('<!--ASSINATURAS-->', buildAssinaturasContrato(d));
+}
+
+// Patrocínio: modelo oficial ainda não recebido — placeholder até chegar.
+function montarContratoPatrocinio() {
+  return '<h1>CONTRATO DE PATROCÍNIO</h1><div class="doc-body"><p>O modelo oficial de patrocínio ainda não foi cadastrado. Assim que o documento padrão for fornecido, ele entra aqui.</p></div>';
 }
 
 // Despacha para o modelo selecionado. Ponto único de extensão para novos modelos.
 function montarContrato(d, modelo) {
-  if (modelo === 'patrocinio') return montarContratoPatrocinio(d);
+  if (modelo === 'patrocinio') return montarContratoPatrocinio();
   return montarContratoServico(d);
 }
 
 function gerarContrato() {
-  const d = coletarDadosContrato();
-  if (!d.clienteNome) { showToast('Informe o nome/razão social do cliente.'); return; }
-  if (!d.objeto)      { showToast('Descreva o objeto do contrato.'); return; }
-  if (!d.valor)       { showToast('Informe o valor total.'); return; }
-  for (const [id, label] of [['inicio', 'Início'], ['entrega', 'Entrega'], ['data', 'Data do contrato']]) {
-    if (d[id] && !isValidBR(d[id])) { showToast(`${label}: data inválida (use dd/mm/aaaa).`); return; }
-  }
   const modelo = (document.getElementById('ct-modelo')?.value || 'servico');
-  contratoTextoAtual = montarContrato(d, modelo);
+  if (modelo === 'patrocinio') { showToast('Modelo de patrocínio em breve.'); return; }
+  const d = coletarDadosContrato();
+  if (!d.empNome && !d.repNome) { showToast('Informe a empresa ou o representante (CONTRATANTE).'); return; }
+  if (!d.servico)  { showToast('Descreva o serviço prestado.'); return; }
+  if (!d.montante) { showToast('Informe o montante.'); return; }
+  contratoHtmlAtual = montarContrato(d, modelo);
   const pre = document.getElementById('ct-preview');
-  if (pre) pre.textContent = contratoTextoAtual;          // textContent: sem risco de injeção
+  if (pre) pre.innerHTML = contratoHtmlAtual;   // valores já escapados (preencherModelo/gesc)
   const card = document.getElementById('ct-preview-card');
   if (card) { card.style.display = ''; card.scrollIntoView({ behavior: 'smooth' }); }
-  showToast(`Contrato ${modelo === 'patrocinio' ? 'de patrocínio' : 'de serviços'} gerado.`);
+  showToast('Contrato gerado.');
 }
 
 function copiarContrato() {
-  if (!contratoTextoAtual) return;
-  navigator.clipboard?.writeText(contratoTextoAtual)
+  const pre = document.getElementById('ct-preview'); if (!pre) return;
+  navigator.clipboard?.writeText(pre.innerText)
     .then(() => showToast('Contrato copiado.'))
     .catch(() => showToast('Não foi possível copiar.'));
 }
 
 function imprimirContrato() {
-  if (!contratoTextoAtual) return;
-  const w = window.open('', '_blank');
-  if (!w) { showToast('Permita pop-ups para imprimir.'); return; }
-  w.document.write(`<pre style="white-space:pre-wrap;font-family:system-ui,sans-serif;font-size:13px;line-height:1.6;padding:24px;">${gesc(contratoTextoAtual)}</pre>`);
-  w.document.close(); w.focus(); w.print();
+  if (!contratoHtmlAtual) { showToast('Gere o contrato primeiro.'); return; }
+  imprimirTermo('CONTRATO DE PRESTAÇÃO DE SERVIÇOS', contratoHtmlAtual);
 }
 
 // Motor genérico de impressão de documento → PDF (via "Salvar como PDF" do
@@ -3312,16 +3636,53 @@ function fmtDur(ms) {
 function pontoElapsedMs() { return pontoTimer.running ? Date.now() - pontoTimer.startTs : 0; }
 function pontoTick() { const el = document.getElementById('ponto-display'); if (el) el.textContent = fmtDur(pontoElapsedMs()); }
 
-// Atualização 9: regras de quando se pode editar.
-// Horas da semana e engajamento só na segunda (getDay()===1) e uma vez por semana.
+// Regras de quando se pode editar.
+// Horas da semana e engajamento podem ser registrados em QUALQUER dia, mas só
+// UMA vez por semana: a trava é o `weekKey` (segunda-feira da semana), que vira
+// sozinho toda segunda — ou seja, reabre automaticamente a cada nova semana.
+// Quem esquecer numa segunda ainda consegue na terça, quarta...; quem não
+// registrar durante a semana inteira fica com aquela semana em branco.
 function pontoIsMonday()       { return appToday().getDay() === 1; }
-function pontoCanEditSemana()  { return pontoIsMonday() && pontoData.semana.weekKey      !== pontoWeekKey(); }
-function pontoCanEditEngaj()   { return pontoIsMonday() && pontoData.engajamento.weekKey !== pontoWeekKey(); }
+function pontoCanEditSemana()  { return pontoData.semana.weekKey      !== pontoWeekKey(); }
+function pontoCanEditEngaj()   { return pontoData.engajamento.weekKey !== pontoWeekKey(); }
 
 // Garante que o acumulador é da semana atual (zera ao virar de semana).
 function pontoEnsureCronoWeek() {
   const wk = pontoWeekKey();
   if (pontoData.crono.weekKey !== wk) pontoData.crono = { acumuladoMs: 0, weekKey: wk };
+}
+
+// ---- Espelho do Ponto no Google Sheets (PLANO 1.7) ----
+// Best-effort: NUNCA quebra o app. Autodesliga quando `pontoSheetId` está vazio
+// (idêntico ao padrão da integração Google). O backend (/api/ponto-sync) relê o
+// valor REAL do `ponto_weekly` no Supabase e escreve a célula (membro × semana);
+// aqui só disparamos a ação — nenhum número sensível trafega pelo navegador.
+function pontoSheetEnabled() { return !!(window.GOOGLE_CONFIG && window.GOOGLE_CONFIG.pontoSheetId); }
+
+// action: 'sync' (com/sem weekStart) | 'move-exmembro' | 'restore' | 'sync-all'
+async function pontoSyncSheet(action, profileId, weekStart) {
+  if (!pontoSheetEnabled()) return;
+  if (action !== 'sync-all' && !profileId) return;
+  try {
+    await fetch('/api/ponto-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action,
+        sheetId: window.GOOGLE_CONFIG.pontoSheetId,
+        profileId: profileId || null,
+        weekStart: weekStart || null,
+      }),
+    });
+  } catch (e) { console.warn('ponto-sync (best-effort) falhou:', e); }
+}
+
+// Botão admin: garante uma linha para cada membro ativo na planilha (backfill).
+async function pontoSyncAllActive(btn) {
+  if (!pontoSheetEnabled()) { showToast('Espelho da planilha não está configurado.'); return; }
+  const restore = btn ? setBtnLoading(btn) : null;
+  try { await pontoSyncSheet('sync-all'); showToast('Planilha sincronizada com os membros ativos.'); }
+  finally { if (restore) restore(); }
 }
 
 // Inicia/para o cronômetro. Ao parar, pergunta se guarda — se sim, soma no acumulador semanal.
@@ -3357,9 +3718,7 @@ function pontoToggle() {
 // Registra as horas da semana (com dupla confirmação e trava semanal).
 function pontoSubmitSemana() {
   if (!pontoCanEditSemana()) {
-    showToast(pontoIsMonday()
-      ? 'Você já registrou as horas desta semana.'
-      : 'O registro só pode ser feito às segundas-feiras.');
+    showToast('Você já registrou as horas desta semana. Reabre na próxima segunda-feira.');
     return;
   }
   const w = parseFloat(document.getElementById('ponto-worked')?.value);
@@ -3371,23 +3730,23 @@ function pontoSubmitSemana() {
   if (!confirm(`Enviar ${worked} h trabalhadas e ${meetings} h em reuniões?\n\nNão será possível alterar até a próxima segunda-feira.`)) return;
   pontoData.semana = { worked, meetings, weekKey: pontoWeekKey() };
   dbSavePonto({ worked, meetings });
+  pontoSyncSheet('sync', memberIdByName(currentUser.name), pontoMondayISO());
   renderPonto();
-  showToast('Horas da semana registradas. (Envio à planilha pendente.)');
+  showToast('Horas da semana registradas.');
 }
 
 // Define o engajamento da semana (1–10) com dupla confirmação e trava semanal.
 function pontoSetEngajamento(v) {
   if (!pontoCanEditEngaj()) {
-    showToast(pontoIsMonday()
-      ? 'Você já marcou seu engajamento desta semana.'
-      : 'O engajamento só pode ser marcado às segundas-feiras.');
+    showToast('Você já marcou seu engajamento desta semana. Reabre na próxima segunda-feira.');
     return;
   }
   if (!confirm(`Confirmar engajamento ${v}/10?\n\nNão será possível alterar até a próxima segunda-feira.`)) return;
   pontoData.engajamento = { value: v, weekKey: pontoWeekKey() };
   dbSavePonto({ engajamento: v });
+  pontoSyncSheet('sync', memberIdByName(currentUser.name), pontoMondayISO());
   renderPonto();
-  showToast(`Engajamento da semana: ${v}/10. (Envio à planilha pendente.)`);
+  showToast(`Engajamento da semana: ${v}/10.`);
 }
 
 function renderPonto() {
@@ -3431,11 +3790,11 @@ function renderPonto() {
   if (mi) { mi.disabled = !canSem; if (sameWeek) mi.value = s.meetings || ''; }
   if (semBtn) semBtn.disabled = !canSem;
   if (semBloq) {
+    // Sem a regra de "só segunda", o bloqueio só ocorre quando já se registrou
+    // nesta semana — reabre sozinho na próxima segunda (virada de weekKey).
     if (!canSem) {
       semBloq.style.display = '';
-      semBloq.textContent = sameWeek
-        ? 'Horas desta semana já registradas. Próxima edição: na segunda da semana que vem.'
-        : 'O registro só fica disponível às segundas-feiras.';
+      semBloq.textContent = 'Horas desta semana já registradas. Reabre na próxima segunda-feira.';
     } else {
       semBloq.style.display = 'none';
     }
@@ -3453,12 +3812,9 @@ function renderPonto() {
   }
   const engBloq = document.getElementById('ponto-engaj-bloqueio');
   if (engBloq) {
-    const sameEng = pontoData.engajamento.weekKey === wk;
     if (!canEng) {
       engBloq.style.display = '';
-      engBloq.textContent = sameEng
-        ? 'Engajamento desta semana já registrado. Próxima edição: na segunda da semana que vem.'
-        : 'O engajamento só pode ser marcado às segundas-feiras.';
+      engBloq.textContent = 'Engajamento desta semana já registrado. Reabre na próxima segunda-feira.';
     } else {
       engBloq.style.display = 'none';
     }
@@ -3467,6 +3823,10 @@ function renderPonto() {
   if (enSt) enSt.textContent = (pontoData.engajamento.weekKey === wk && pontoData.engajamento.value)
     ? `Você marcou ${pontoData.engajamento.value}/10 nesta semana.`
     : 'Você ainda não marcou seu engajamento nesta semana.';
+
+  // Card admin de sincronização: só com o espelho ligado e permissão de membros.
+  const adminSync = document.getElementById('ponto-admin-sync');
+  if (adminSync) adminSync.style.display = (pontoSheetEnabled() && can('membros.edit')) ? '' : 'none';
 }
 
 // ============== RELÓGIO / DATA CENTRAL — Atualização 8 ==============
@@ -3546,6 +3906,13 @@ function setCurrentUserFromMember(m) {
     caps: [], avatar: initials(m.name), photo: null, self: true,
     ...(padrinho ? { padrinho } : {}),
   });
+  // Dados pessoais (documentos) vivem no MEMBRO; currentUser referencia o MESMO
+  // objeto, então editar o perfil grava no registro que o termo/contrato lê.
+  if (!m.docInfo) m.docInfo = emptyDocInfo();
+  currentUser.docInfo = m.docInfo;
+  // Online: o doc_info já veio do banco (loadMembersFromDB). Offline: recupera do
+  // cache local por e-mail.
+  if (!sbClient) restoreDocInfoInto(currentUser.docInfo, currentUser.email);
 }
 
 function protoSwitchUser(name) {
@@ -3838,7 +4205,7 @@ async function authConfirmReset() {
 async function loadMembersFromDB() {
   if (!sbClient) return false;
   const { data, error } = await sbClient.from('profiles')
-    .select('id, name, email, role, sector, access, status, course, entry_date, caps_count, padrinho_id, points');
+    .select('id, name, email, role, sector, access, status, course, entry_date, caps_count, padrinho_id, points, doc_info');
   if (error || !Array.isArray(data)) { console.warn('Falha ao carregar membros do banco:', error?.message); return false; }
   const nameById = Object.fromEntries(data.map(r => [r.id, r.name]));
   const mapped = data.map(r => {
@@ -3846,6 +4213,7 @@ async function loadMembersFromDB() {
       id: r.id, name: r.name, email: r.email, role: r.role, sector: r.sector,
       access: r.access, status: r.status, course: r.course,
       entryDate: r.entry_date, capsCount: r.caps_count, points: r.points,
+      docInfo: normDocInfo(r.doc_info),   // dados pessoais p/ documentos (jsonb)
     };
     if (r.role === 'Trainee') m.padrinho = nameById[r.padrinho_id] || '';
     return m;
@@ -3896,9 +4264,19 @@ async function dbUpdateMember(member, patch) {
   if ('access'  in patch) row.access = patch.access;
   if ('status'  in patch) row.status = patch.status;
   if ('points'  in patch) row.points = patch.points;
+  if ('docInfo' in patch) row.doc_info = patch.docInfo;   // caminho admin (gere-membros)
   if ('padrinho' in patch) row.padrinho_id = patch.padrinho ? memberIdByName(patch.padrinho) : null;
   const { error } = await sbClient.from('profiles').update(row).eq('id', member.id);
   if (error) { showToast('Erro ao salvar no banco: ' + error.message); console.warn('dbUpdateMember', error); }
+}
+
+// Grava SÓ o doc_info do PRÓPRIO usuário (dados pessoais para documentos). Vai por
+// RPC SECURITY DEFINER porque a RLS de profiles não deixa o membro comum escrever
+// direto na própria linha (trava de auto-promoção) — a função toca só em doc_info.
+async function dbSaveMyDocInfo(docInfo) {
+  if (!sbClient) return;
+  const { error } = await sbClient.rpc('update_my_doc_info', { p_doc: docInfo });
+  if (error) { showToast('Erro ao salvar dados no banco: ' + error.message); console.warn('dbSaveMyDocInfo', error); }
 }
 
 async function dbCreateMember(member) {
@@ -3907,10 +4285,12 @@ async function dbCreateMember(member) {
     name: member.name, email: member.email, role: member.role, sector: member.sector,
     access: member.access, status: member.status, course: member.course,
     entry_date: member.entryDate, caps_count: member.capsCount ?? 0, points: member.points ?? 0,
+    doc_info: member.docInfo ?? {},
     padrinho_id: member.padrinho ? memberIdByName(member.padrinho) : null,
   }).select('id').single();
   if (error) { showToast('Erro ao criar no banco: ' + error.message); console.warn('dbCreateMember', error); return; }
   member.id = data.id;   // passa a carregar o id real do banco
+  if ((member.status || 'Ativo') !== 'Inativo') pontoSyncSheet('sync', member.id);  // planilha: garante a linha do novo membro
 }
 
 async function dbDeleteMember(member) {

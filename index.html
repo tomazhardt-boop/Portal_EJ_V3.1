@@ -368,6 +368,36 @@
         <option>Engenharia Têxtil</option>
       </select>
     </div>
+
+    <div class="section-label" style="margin-top:10px;">Dados pessoais (para documentos)</div>
+    <div class="sub">Usados para gerar seu termo de desligamento e contratos. Só você edita estes dados.</div>
+    <div class="form-row"><label>Gênero</label>
+      <select id="edit-genero">
+        <option value="">— selecionar —</option>
+        <option>Masculino</option><option>Feminino</option><option>Outro</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Estado civil</label>
+      <select id="edit-estadocivil">
+        <option value="">— selecionar —</option>
+        <option>Solteiro</option><option>Casado</option><option>Divorciado</option>
+        <option>Viúvo</option><option>Separado</option><option>União estável</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Nacionalidade</label><input type="text" id="edit-nacionalidade" placeholder="Ex: Brasileira" /></div>
+    <div class="form-row"><label>CPF</label><input type="text" id="edit-cpf" placeholder="000.000.000-00" /></div>
+    <div class="form-row"><label>RG</label><input type="text" id="edit-rg" placeholder="0.000.000" /></div>
+    <div class="form-row"><label>Órgão emissor</label><input type="text" id="edit-orgao" placeholder="Ex: SSP/SC" /></div>
+    <div class="form-row"><label>Data de entrada (dia/mês/ano)</label><input type="date" id="edit-data-entrada" /></div>
+    <div class="section-label" style="margin-top:6px;">Endereço</div>
+    <div class="form-row"><label>Rua</label><input type="text" id="edit-end-rua" /></div>
+    <div class="form-row"><label>Número</label><input type="text" id="edit-end-numero" /></div>
+    <div class="form-row"><label>Apartamento / complemento</label><input type="text" id="edit-end-apto" placeholder="opcional" /></div>
+    <div class="form-row"><label>Bairro</label><input type="text" id="edit-end-bairro" /></div>
+    <div class="form-row"><label>Cidade</label><input type="text" id="edit-end-cidade" /></div>
+    <div class="form-row"><label>Estado (UF)</label><input type="text" id="edit-end-estado" placeholder="Ex: SC" /></div>
+    <div class="form-row"><label>CEP</label><input type="text" id="edit-end-cep" placeholder="00000-000" /></div>
+
     <div class="form-row" data-module="capacitacoes">
       <label>Capacitações concluídas</label>
       <div id="edit-caps-list" style="margin-bottom:8px;min-height:28px;"></div>
@@ -526,20 +556,19 @@
     <h3>Desligar membro</h3>
     <div class="sub">Membro: <b id="desl-membro-nome">—</b></div>
     <div style="font-size:13px;color:var(--gray-600);margin:12px 0;">
-      Escolha o tipo de desligamento. Ambos geram um <b>termo em PDF</b> (modelo provisório — texto oficial entra depois) e marcam o perfil como <b>Inativo</b>, bloqueando o acesso. O registro fica <b>recuperável</b> e só é apagado em definitivo após o prazo de retenção.
+      Gera o <b>termo de desligamento em PDF</b> e marca o perfil como <b>Inativo</b>, bloqueando o acesso. O registro fica <b>recuperável</b> e só é apagado em definitivo após o prazo de retenção.
     </div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
-      <button class="btn btn-outline" style="text-align:left;padding:12px;border-color:#dc2626;color:#dc2626;" onclick="executarDesligamento('ma_conduta')">
-        Desligamento por má conduta
-        <div style="font-size:11px;color:var(--gray-500);font-weight:400;margin-top:2px;">Procedimento específico para infrações graves.</div>
-      </button>
-      <button class="btn btn-outline" style="text-align:left;padding:12px;" onclick="executarDesligamento('normal')">
-        Desligamento (saída normal)
-        <div style="font-size:11px;color:var(--gray-500);font-weight:400;margin-top:2px;">Saída voluntária, fim de mandato, conclusão do curso, etc.</div>
-      </button>
+    <div class="form-row">
+      <label>Motivo do desligamento</label>
+      <select id="desl-motivo"><option value="">— selecionar —</option></select>
+    </div>
+    <div class="form-row">
+      <label>Data de desligamento</label>
+      <input type="date" id="desl-data" />
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-desligar'); desligamentoCtx=null;">Cancelar</button>
+      <button class="btn btn-primary" onclick="executarDesligamento()">Desligar e gerar termo</button>
     </div>
   </div>
 </div>
