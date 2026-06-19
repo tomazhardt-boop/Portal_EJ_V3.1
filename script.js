@@ -770,7 +770,10 @@ function openMemberProfile(name) {
       <div class="section-label">Projetos em andamento</div>
       <div class="u-col gap-6">
         ${active.map(p=>`<div class="mini-list-row"><b>${gesc(p.name)}</b><span class="tag">${gesc(p.sector)}</span></div>`).join('')}
-      </div>` : ''}`;
+      </div>` : ''}
+    <div class="section-label">Advertências (${penaltyPoints(m)} pts)</div>
+    ${penaltyCardsHtml(m, canPenalize())}
+    ${(canPenalize() && (m.penalties || []).length) ? `<div style="margin-top:8px;"><button class="btn btn-ghost" style="font-size:12px;color:var(--red-700);" onclick="clearPenalties(${jsArg(m.name)})">Zerar advertências</button></div>` : ''}`;
   document.getElementById('membro-perfil-content').innerHTML = content;
   document.getElementById('modal-membro-perfil').classList.add('active');
 }
@@ -2974,7 +2977,7 @@ function renderMembros() {
           </select></td>
           <td>${setorPadCell}</td>
           <td>${gesc(m.entryDate || '—')}</td>
-          <td>${statTag}${reterTag}</td>
+          <td>${statTag}${reterTag}${penaltyMembCell(m, isSelf)}</td>
           <td style="text-align:right;white-space:nowrap;">
             ${canEditMembers ? `
             <button class="btn btn-ghost" style="font-size:12px;" onclick="toggleStatusByName(${jsArg(m.name)})">${m.status === 'Ativo' ? '⏸ Desativar' : '▶ Ativar'}</button>
@@ -3042,6 +3045,184 @@ function toggleStatusByName(name) {
   if (document.getElementById('memb-table'))        renderMembros();
   if (document.getElementById('permissions-table')) renderPermissions();
   showToast(`${members[i].name} agora está ${members[i].status}.`);
+}
+
+// ============================================================================
+// PENALIDADES (cartões disciplinares) — página de Membros
+// ----------------------------------------------------------------------------
+// Cartões verde(2)/amarelo(3)/vermelho(6) = "pontos de advertência", SEPARADOS
+// do `points` de Trainee. Aplicar/remover/zerar: Presidente ou qualquer Diretor.
+// Notificação na plataforma quando o total cruza 6 e 12 pontos (mostrada ao
+// PRÓPRIO membro no login, única por navegador); 12 pts dispara e-mail também.
+// Persistência: tabela `penalties` (online) ou localStorage (offline).
+// ============================================================================
+const PENALTY_DEFS = {
+  verde:    { label: 'Verde',    points: 2, color: '#16a34a' },
+  amarelo:  { label: 'Amarelo',  points: 3, color: '#d97706' },
+  vermelho: { label: 'Vermelho', points: 6, color: '#dc2626' },
+};
+const PENALTY_REASONS = {
+  verde: [
+    'Faltar em uma reunião extraordinária sem justificativa',
+    'Faltar em reunião de desenvolvimento individual, sem justificativa',
+    'Não participar das interações, dinâmicas e atividades que visam o aprimoramento do clima organizacional da empresa',
+    'Não manter postura durante as reuniões',
+    'Não realizar o envio das horas semanais/engajamento',
+    'Não atualizar a planilha do processo Trainee',
+  ],
+  amarelo: [
+    'Faltar em eventos da rede (quando já inscrito) sem justificativa prévia',
+    'Não cumprir com as tarefas designadas',
+    'Faltar reunião geral sem justificativa',
+    'Faltar uma reunião setorial sem justificativa',
+    'Entregar atividades com qualidade inadequada',
+    'Vazar informações internas da Integre',
+    'Desconfigurar sem autorização prévia, documentos da Integre',
+    'Desrespeitar membros ou o ambiente de trabalho',
+  ],
+  vermelho: [
+    'Faltar reuniões/visitas diagnósticas',
+    'Não cumprir as tarefas designadas',
+    'Agir de má fé com membros ou a integridade da empresa',
+    'Utilização do dinheiro da Integre sem autorização prévia',
+  ],
+};
+const PENALTY_WARN_1 = 6, PENALTY_WARN_2 = 12;
+let penaltyCtx = null;   // { memberName }
+
+function canPenalize(u = currentUser) { return !!u && (u.role === 'Presidente' || u.role === 'Diretor'); }
+function penaltyPoints(m) { return (m.penalties || []).reduce((s, p) => s + (p.points || 0), 0); }
+
+function openPenaltyModal(name) {
+  if (!canPenalize()) { showToast('Sem permissão para aplicar penalidades.'); return; }
+  penaltyCtx = { memberName: name };
+  const lbl = document.getElementById('pen-membro-nome'); if (lbl) lbl.textContent = name;
+  const cor = document.getElementById('pen-cor'); if (cor) cor.value = '';
+  populatePenaltyReasons();
+  const dt = document.getElementById('pen-data'); if (dt) dt.value = dateInputISO(appToday());
+  document.getElementById('modal-penalidade').classList.add('active');
+}
+
+// Justificativas dependem da cor escolhida (tabela fixa por cartão).
+function populatePenaltyReasons() {
+  const cor = document.getElementById('pen-cor')?.value;
+  const sel = document.getElementById('pen-justificativa'); if (!sel) return;
+  const list = PENALTY_REASONS[cor] || [];
+  sel.innerHTML = (cor ? '<option value="">— selecionar justificativa —</option>' : '<option value="">— selecione a cor primeiro —</option>')
+    + list.map(r => `<option value="${gesc(r)}">${gesc(r)}</option>`).join('');
+  sel.disabled = !cor;
+}
+
+async function applyPenalty() {
+  if (!penaltyCtx || !canPenalize()) return;
+  const m = members.find(x => x.name === penaltyCtx.memberName); if (!m) return;
+  const cor = document.getElementById('pen-cor')?.value;
+  const reason = document.getElementById('pen-justificativa')?.value;
+  const date = document.getElementById('pen-data')?.value || dateInputISO(appToday());
+  if (!cor || !PENALTY_DEFS[cor]) { showToast('Selecione a cor do cartão.'); return; }
+  if (!reason)                    { showToast('Selecione a justificativa.'); return; }
+  const before = penaltyPoints(m);
+  const card = { id: 'local-' + Date.now(), color: cor, points: PENALTY_DEFS[cor].points, reason, date, by: currentUser.name };
+  m.penalties = m.penalties || [];
+  m.penalties.push(card);
+  if (sbClient) { const id = await dbAddPenalty(m, card); if (id) card.id = id; }
+  else savePenaltiesLocal();
+  const after = penaltyPoints(m);
+  // E-mail só ao CRUZAR 12 pts (best-effort, da conta Google do aplicador). O aviso
+  // na plataforma aparece ao próprio membro no login (checkPenaltyNotices).
+  if (before < PENALTY_WARN_2 && after >= PENALTY_WARN_2) sendPenaltyEmail(m, after);
+  penaltyCtx = null;
+  closeModal('modal-penalidade');
+  if (document.getElementById('memb-table')) renderMembros();
+  showToast(`Cartão ${PENALTY_DEFS[cor].label.toLowerCase()} aplicado a ${m.name} (+${card.points} pts · total ${after}).`);
+}
+
+async function removePenalty(memberName, cardId) {
+  if (!canPenalize()) { showToast('Sem permissão.'); return; }
+  const m = members.find(x => x.name === memberName); if (!m || !m.penalties) return;
+  if (!confirm('Remover este cartão?')) return;
+  m.penalties = m.penalties.filter(p => String(p.id) !== String(cardId));
+  if (sbClient) await dbRemovePenalty(cardId); else savePenaltiesLocal();
+  if (document.getElementById('membro-perfil-content')) openMemberProfile(memberName);
+  if (document.getElementById('memb-table')) renderMembros();
+  showToast('Cartão removido.');
+}
+
+async function clearPenalties(memberName) {
+  if (!canPenalize()) { showToast('Sem permissão.'); return; }
+  const m = members.find(x => x.name === memberName); if (!m) return;
+  if (!confirm(`Zerar TODAS as advertências de ${memberName}?`)) return;
+  m.penalties = [];
+  if (sbClient) await dbClearPenalties(m); else savePenaltiesLocal();
+  if (document.getElementById('membro-perfil-content')) openMemberProfile(memberName);
+  if (document.getElementById('memb-table')) renderMembros();
+  showToast(`Advertências de ${memberName} zeradas.`);
+}
+
+// Célula da lista de Membros (ao lado do status): contador de pontos (todos veem)
+// + botão "Penalidade" (só quem pode aplicar; nunca no próprio registro).
+function penaltyMembCell(m, isSelf) {
+  const pts = penaltyPoints(m);
+  const cor = pts >= PENALTY_WARN_2 ? '#dc2626' : pts >= PENALTY_WARN_1 ? '#d97706' : '#6b7280';
+  const badge = pts > 0 ? `<span title="Pontos de advertência" style="display:inline-block;margin-left:6px;background:${cor};color:#fff;font-size:10px;padding:1px 6px;border-radius:999px;">${pts} pts</span>` : '';
+  const btn = (canPenalize() && !isSelf)
+    ? `<div style="margin-top:4px;"><button class="btn btn-ghost" style="font-size:12px;color:#b45309;" onclick="openPenaltyModal(${jsArg(m.name)})">⚠ Penalidade</button></div>`
+    : '';
+  return badge + btn;
+}
+
+// Cartões (chips) para o perfil. `manage` mostra o ✕ de remoção. Todos veem os cartões.
+function penaltyCardsHtml(m, manage) {
+  const cards = m.penalties || [];
+  if (!cards.length) return '<div class="u-muted text-13">Nenhuma advertência.</div>';
+  return '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + cards.map(p => {
+    const d = PENALTY_DEFS[p.color] || { color: '#6b7280', label: p.color };
+    const dt = p.date ? p.date.split('-').reverse().join('/') : '';
+    const tip = `${p.reason}${dt ? ' · ' + dt : ''}${p.by ? ' · por ' + p.by : ''}`;
+    const x = manage ? `<span style="cursor:pointer;margin-left:6px;font-weight:700;" onclick="removePenalty(${jsArg(m.name)}, ${jsArg(String(p.id))})">×</span>` : '';
+    return `<span title="${gesc(tip)}" style="display:inline-flex;align-items:center;background:${d.color};color:#fff;font-size:11px;padding:2px 8px;border-radius:999px;">${gesc(d.label)} (${p.points})${x}</span>`;
+  }).join('') + '</div>';
+}
+
+// Aviso na plataforma ao próprio membro (no login). "Única" via flag local por
+// e-mail+nível; se o total cair abaixo do limiar, a flag é limpa (re-notifica se cruzar de novo).
+function checkPenaltyNotices() {
+  const m = members.find(x => x.name === currentUser.name); if (!m) return;
+  const total = penaltyPoints(m);
+  const key = n => `penalty_seen:${currentUser.email}:${n}`;
+  try {
+    if (total < PENALTY_WARN_1) { localStorage.removeItem(key(1)); localStorage.removeItem(key(2)); return; }
+    if (total < PENALTY_WARN_2) localStorage.removeItem(key(2));
+    if (total >= PENALTY_WARN_2 && !localStorage.getItem(key(2))) {
+      showToast(`Atenção: você está com ${total} pontos de advertência.`);
+      localStorage.setItem(key(2), '1');
+    } else if (total >= PENALTY_WARN_1 && !localStorage.getItem(key(1))) {
+      showToast('Cuidado você já está com 6 pontos de advertência');
+      localStorage.setItem(key(1), '1');
+    }
+  } catch (e) {}
+}
+
+// E-mail de advertência (ao cruzar 12 pts) — best-effort, conta Google do aplicador.
+async function sendPenaltyEmail(m, total) {
+  if (typeof googleCalConnected !== 'function' || !googleCalConnected()) return;
+  const html = `<p>Olá ${gesc(m.name)},</p><p>Você atingiu <b>${total} pontos de advertência</b> na Integre Júnior. Procure a diretoria para tratar da situação.</p>`;
+  try { await gmailSend({ to: memberEmail(m), subject: 'Advertência — pontos acumulados', html }); } catch (e) {}
+}
+
+// Persistência offline (sem Supabase): um objeto e-mail→cartões no localStorage.
+function loadPenaltiesLocal() {
+  try {
+    const o = JSON.parse(localStorage.getItem('penalties_local') || '{}');
+    members.forEach(m => { const a = o[memberEmail(m)]; m.penalties = Array.isArray(a) ? a : (m.penalties || []); });
+  } catch (e) {}
+}
+function savePenaltiesLocal() {
+  try {
+    const o = {};
+    members.forEach(m => { if (m.penalties && m.penalties.length) o[memberEmail(m)] = m.penalties; });
+    localStorage.setItem('penalties_local', JSON.stringify(o));
+  } catch (e) {}
 }
 
 // ============================================================================
@@ -4299,6 +4480,40 @@ async function dbDeleteMember(member) {
   if (error) { showToast('Erro ao excluir no banco: ' + error.message); console.warn('dbDeleteMember', error); }
 }
 
+// ---- Penalidades (cartões) no banco ----
+async function dbAddPenalty(m, card) {
+  if (!sbClient || !m?.id) return null;
+  const { data, error } = await sbClient.from('penalties').insert({
+    profile_id: m.id, color: card.color, points: card.points, reason: card.reason,
+    card_date: card.date, applied_by: memberIdByName(currentUser.name),
+  }).select('id').single();
+  if (error) { showToast('Erro ao aplicar cartão no banco: ' + error.message); console.warn('dbAddPenalty', error); return null; }
+  return data.id;
+}
+async function dbRemovePenalty(id) {
+  if (!sbClient || typeof id !== 'string' || id.startsWith('local-')) return;
+  const { error } = await sbClient.from('penalties').delete().eq('id', id);
+  if (error) { showToast('Erro ao remover cartão: ' + error.message); console.warn('dbRemovePenalty', error); }
+}
+async function dbClearPenalties(m) {
+  if (!sbClient || !m?.id) return;
+  const { error } = await sbClient.from('penalties').delete().eq('profile_id', m.id);
+  if (error) { showToast('Erro ao zerar advertências: ' + error.message); console.warn('dbClearPenalties', error); }
+}
+async function loadPenaltiesFromDB() {
+  if (!sbClient) return false;
+  const { data, error } = await sbClient.from('penalties')
+    .select('id, profile_id, color, points, reason, card_date, applied_by').order('card_date');
+  if (error || !Array.isArray(data)) { console.warn('Falha ao carregar penalidades:', error?.message); return false; }
+  const byId = {}; const nameById = {};
+  members.forEach(m => { if (m.id) { m.penalties = []; byId[m.id] = m.penalties; nameById[m.id] = m.name; } });
+  data.forEach(r => {
+    const arr = byId[r.profile_id]; if (!arr) return;
+    arr.push({ id: r.id, color: r.color, points: r.points, reason: r.reason, date: r.card_date, by: nameById[r.applied_by] || '' });
+  });
+  return true;
+}
+
 // ---- Gravação de projetos/tarefas no banco (Fase 2 — escrita) ----
 // Usam project.dbId / task.dbId (UUID) e resolvem nomes → ids. Datas dd/mm/aaaa
 // viram yyyy-mm-dd (null quando vazio). Write-through: mutam o local e gravam.
@@ -4735,6 +4950,7 @@ async function enterApp(email) {
         loadProjectsFromDB(), loadAvisosFromDB(), loadMetasFromDB(),
         loadCalendarFromDB(), loadDriveFromDB(), loadLegadoFromDB(), loadInstitutionalFromDB(),
         loadCapsFromDB(), loadActivitiesFromDB(), loadValidationsFromDB(), loadPontoFromDB(),
+        loadPenaltiesFromDB(),
       ]);
     } finally { hideAppLoading(); }
   }
@@ -4743,6 +4959,8 @@ async function enterApp(email) {
   protoInit();                  // atualiza chip do topbar + select do Modo Protótipo
   applySidebarPermissions();    // mostra só as páginas permitidas para o cargo
   applyModuleVisibility();      // esconde modais/blocos estáticos de módulos off
+  if (!sbClient) loadPenaltiesLocal();   // offline: penalidades vêm do localStorage
+  checkPenaltyNotices();                 // aviso na plataforma se o membro tem 6/12 pts
   goTo(DEFAULT_PAGE);
 }
 

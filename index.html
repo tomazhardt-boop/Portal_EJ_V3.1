@@ -573,6 +573,35 @@
   </div>
 </div>
 
+<!-- Modal Aplicar Penalidade -->
+<div class="modal-overlay" id="modal-penalidade">
+  <div class="modal" style="max-width:480px;">
+    <h3>Aplicar penalidade</h3>
+    <div class="sub">Membro: <b id="pen-membro-nome">—</b></div>
+    <div class="form-row">
+      <label>Cartão</label>
+      <select id="pen-cor" onchange="populatePenaltyReasons()">
+        <option value="">— selecionar —</option>
+        <option value="verde">🟢 Verde (2 pontos)</option>
+        <option value="amarelo">🟡 Amarelo (3 pontos)</option>
+        <option value="vermelho">🔴 Vermelho (6 pontos)</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Justificativa</label>
+      <select id="pen-justificativa" disabled><option value="">— selecione a cor primeiro —</option></select>
+    </div>
+    <div class="form-row">
+      <label>Data do cartão</label>
+      <input type="date" id="pen-data" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-penalidade'); penaltyCtx=null;">Cancelar</button>
+      <button class="btn btn-primary" onclick="applyPenalty()">Aplicar cartão</button>
+    </div>
+  </div>
+</div>
+
 <!-- Atualização 9: Modal Editar Tópicos de Capacitação -->
 <div class="modal-overlay" id="modal-cap-topicos">
   <div class="modal" style="max-width:520px;">
