@@ -1,0 +1,13 @@
+-- ============================================================================
+-- Migração (Fase 5): guarda o id do evento da TAREFA no Google Calendar.
+-- ----------------------------------------------------------------------------
+-- Espelha cada tarefa de projeto como um evento na agenda do RESPONSÁVEL
+-- (Modelo B: backend /api/calendar-task usa service account com delegação de
+-- domínio). Esta coluna guarda o id do evento para sincronizar edição/exclusão.
+-- O backend escreve aqui com a chave service_role; o navegador nunca toca nela.
+--
+-- Necessária só no banco que JÁ existe (o schema.sql novo já traz a coluna).
+-- Como aplicar: Supabase Dashboard > SQL Editor > cole isto > Run.
+-- É idempotente (IF NOT EXISTS): pode rodar de novo sem erro.
+-- ============================================================================
+alter table tasks add column if not exists google_event_id text;

@@ -27,6 +27,13 @@ window.GOOGLE_CONFIG = {
   // VAZIO = espelho desligado: o app salva normalmente no Supabase e só não
   // envia ao Sheets. Preencher após criar/compartilhar a planilha (PLANO 3.4).
   pontoSheetId: '',
+
+  // Espelhar TAREFAS de projeto na agenda do RESPONSÁVEL (backend
+  // /api/calendar-task, Modelo B). FALSE = desligado: o app salva a tarefa
+  // normalmente no Supabase e só não cria o evento. Ligar (true) APÓS o setup
+  // de delegação de domínio + GOOGLE_SA_KEY na Vercel (ver topo de
+  // api/calendar-task.js — precisa de super-admin do Workspace).
+  taskCalendar: false,
 };
 
 // ============================================================================

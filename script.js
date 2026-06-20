@@ -3858,6 +3858,25 @@ async function pontoSyncSheet(action, profileId, weekStart) {
   } catch (e) { console.warn('ponto-sync (best-effort) falhou:', e); }
 }
 
+// ---- Tarefa de projeto → Google Agenda do responsável (Modelo B) ----
+// Best-effort: NUNCA quebra o app. Autodesliga quando `taskCalendar` é falso.
+// O backend (/api/calendar-task) relê a tarefa REAL no Supabase, monta o evento
+// e grava na agenda do RESPONSÁVEL (delegação de domínio); aqui só disparamos a
+// ação com o id da tarefa. O id do evento fica no banco, não no navegador.
+function taskCalendarEnabled() { return !!(window.GOOGLE_CONFIG && window.GOOGLE_CONFIG.taskCalendar); }
+
+// action: 'upsert' (criar/atualizar) | 'delete' (apagar o evento)
+async function calendarTaskSync(action, taskId) {
+  if (!taskCalendarEnabled() || !taskId) return;
+  try {
+    await fetch('/api/calendar-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, taskId }),
+    });
+  } catch (e) { console.warn('calendar-task (best-effort) falhou:', e); }
+}
+
 // Botão admin: garante uma linha para cada membro ativo na planilha (backfill).
 async function pontoSyncAllActive(btn) {
   if (!pontoSheetEnabled()) { showToast('Espelho da planilha não está configurado.'); return; }
@@ -4571,6 +4590,7 @@ async function dbCreateTask(p, task) {
   }).select('id').single();
   if (error) { showToast('Erro ao criar tarefa: ' + error.message); console.warn('dbCreateTask', error); return; }
   task.dbId = data.id;
+  calendarTaskSync('upsert', task.dbId);  // espelha na agenda do responsável (best-effort)
 }
 
 async function dbUpdateTask(task, patch) {
@@ -4583,11 +4603,14 @@ async function dbUpdateTask(task, patch) {
   if ('due'      in patch) row.due_date = toDate(patch.due);
   if ('done'     in patch) row.done = patch.done;
   const { error } = await sbClient.from('tasks').update(row).eq('id', task.dbId);
-  if (error) { showToast('Erro ao salvar tarefa: ' + error.message); console.warn('dbUpdateTask', error); }
+  if (error) { showToast('Erro ao salvar tarefa: ' + error.message); console.warn('dbUpdateTask', error); return; }
+  calendarTaskSync('upsert', task.dbId);  // reflete a edição no evento da agenda (best-effort)
 }
 
 async function dbDeleteTask(task) {
   if (!sbClient || !task?.dbId) return;
+  // Apaga o evento ANTES de remover a linha (o backend lê o google_event_id dela).
+  await calendarTaskSync('delete', task.dbId);
   const { error } = await sbClient.from('tasks').delete().eq('id', task.dbId);
   if (error) { showToast('Erro ao excluir tarefa: ' + error.message); console.warn('dbDeleteTask', error); }
 }

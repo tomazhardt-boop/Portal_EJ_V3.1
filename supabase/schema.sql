@@ -104,6 +104,7 @@ create table tasks (
   due_date    date,
   done        boolean not null default false,
   position    int not null default 0,      -- ordem no cronograma
+  google_event_id text,                    -- evento espelhado na agenda do responsável (Fase 5)
   created_at  timestamptz not null default now()
 );
 create index on tasks (project_id);
