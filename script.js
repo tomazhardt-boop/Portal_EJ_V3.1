@@ -3441,7 +3441,10 @@ function gerarTermoDesligamento(m, motivoTexto, dataDeslISO) {
     'Motivo': motivoTexto,
     'Dia': emiss.dia, 'Mês': emiss.mes, 'Ano': emiss.ano,
   };
-  imprimirTermo('TERMO DE DESLIGAMENTO', preencherModelo(TEMPLATE_TERMO, dados) + assinaturasTermo(m));
+  // Motor Google Docs (idêntico ao modelo) quando configurado; senão, impressão.
+  gerarDocumentoGoogle('termo', `Termo de Desligamento - ${m.name}`, dados, []).then(ok => {
+    if (!ok) imprimirTermo('TERMO DE DESLIGAMENTO', preencherModelo(TEMPLATE_TERMO, dados) + assinaturasTermo(m));
+  });
 }
 
 // Exclusão PERMANENTE (hard delete). Apaga o registro do banco; as FKs limpam os
@@ -3518,6 +3521,7 @@ function removeTopicoCap(key) {
 
 // ============== CONTRATOS — geração de documento (motor {{campo}}) ==============
 let contratoHtmlAtual = '';
+let contratoDocAtual = null;   // { tipo, filename, fields, parcelas } p/ o motor Google Docs
 
 function renderContratos() {
   const dataEl = document.getElementById('ct-data');
@@ -3759,6 +3763,40 @@ function montarContratoServico(d) {
     .replace('<!--ASSINATURAS-->', buildAssinaturasContrato(d));
 }
 
+// Campos do contrato no formato dos {{marcadores}} REAIS do Google Doc modelo
+// (nomes idênticos aos do template) + linhas de parcela para a tabela. A
+// CONTRATADA (EJ) e os diretores são FIXOS no próprio Doc — não entram aqui.
+function contratoFieldsParaDoc(d) {
+  const tInfo = (name) => { const m = members.find(x => x.name === name), di = (m && m.docInfo) || {}; return { cpf: di.cpf || '', rg: di.rg || '' }; };
+  const w1 = tInfo(d.test1), w2 = tInfo(d.test2);
+  const fields = {
+    // Contratante — empresa
+    'Nome Fantasia': d.empNome, 'Rua': d.empRua, 'Número': d.empNum, 'Bairro': d.empBairro,
+    'Cidade/Estado': d.empCidUf, 'CEP da Empresa': d.empCep, 'CNPJ': d.empCnpj,
+    // Representante
+    'Nome completo': d.repNome, 'Nacionalidade': d.repNac, 'Estado civil': d.repEstCiv,
+    'Profissão': d.repProf, 'RG': d.repRg, 'Órgão emissor': d.repOrgao, 'CPF': d.repCpf,
+    'portador': d.repGenero === 'Feminino' ? 'portadora' : 'portador',
+    'inscrito': inscritoGenero(d.repGenero),
+    'Rua do representante': d.repRua, 'Número do representante': d.repNum,
+    'Bairro do representante': d.repBairro, 'Cidade/Estado do representante': d.repCidUf,
+    'CEP do representante': d.repCep,
+    // Projeto
+    'Serviço Prestado': d.servico, 'Plataforma': d.plataforma, 'Prazo de execução': d.prazo,
+    'Informações necessárias para início do Projeto': d.infoInicio,
+    'Montante': d.montante, 'Forma de pagamento': d.formaPg,
+    'data': d.data ? dataPorExtenso(d.data).completa : '',
+    // Testemunhas (nome digitado; CPF/RG do cadastro)
+    '1ª Testemunha': d.test1, 'CPF1': w1.cpf, 'RG1': w1.rg,
+    '2ª Testemunha': d.test2, 'CPF2': w2.cpf, 'RG2': w2.rg,
+  };
+  const parcelas = (d.parcelas || []).map((p, i) => ({
+    parcela: `${i + 1}ª`, valor: p.valor || '',
+    vencimento: p.venc ? p.venc.split('-').reverse().join('/') : '',
+  }));
+  return { fields, parcelas };
+}
+
 // Patrocínio: modelo oficial ainda não recebido — placeholder até chegar.
 function montarContratoPatrocinio() {
   return '<h1>CONTRATO DE PATROCÍNIO</h1><div class="doc-body"><p>O modelo oficial de patrocínio ainda não foi cadastrado. Assim que o documento padrão for fornecido, ele entra aqui.</p></div>';
@@ -3778,6 +3816,13 @@ function gerarContrato() {
   if (!d.servico)  { showToast('Descreva o serviço prestado.'); return; }
   if (!d.montante) { showToast('Informe o montante.'); return; }
   contratoHtmlAtual = montarContrato(d, modelo);
+  // Guarda os dados p/ o motor Google Docs (só o contrato de serviço tem template).
+  if (modelo === 'servico') {
+    const { fields, parcelas } = contratoFieldsParaDoc(d);
+    contratoDocAtual = { tipo: 'contratoServico', filename: `Contrato - ${d.empNome || d.repNome || 'CONTRATANTE'}`, fields, parcelas };
+  } else {
+    contratoDocAtual = null;
+  }
   const pre = document.getElementById('ct-preview');
   if (pre) pre.innerHTML = contratoHtmlAtual;   // valores já escapados (preencherModelo/gesc)
   const card = document.getElementById('ct-preview-card');
@@ -3794,7 +3839,15 @@ function copiarContrato() {
 
 function imprimirContrato() {
   if (!contratoHtmlAtual) { showToast('Gere o contrato primeiro.'); return; }
-  imprimirTermo('CONTRATO DE PRESTAÇÃO DE SERVIÇOS', contratoHtmlAtual);
+  // Motor Google Docs (idêntico ao modelo) quando configurado; senão, impressão.
+  const c = contratoDocAtual;
+  if (c) {
+    gerarDocumentoGoogle(c.tipo, c.filename, c.fields, c.parcelas).then(ok => {
+      if (!ok) imprimirTermo('CONTRATO DE PRESTAÇÃO DE SERVIÇOS', contratoHtmlAtual);
+    });
+  } else {
+    imprimirTermo('CONTRATO DE PRESTAÇÃO DE SERVIÇOS', contratoHtmlAtual);
+  }
 }
 
 // Motor genérico de impressão de documento → PDF (via "Salvar como PDF" do
@@ -3821,6 +3874,48 @@ function imprimirTermo(titulo, corpoHtml) {
   // dá um tick para renderizar antes de abrir o diálogo de impressão
   setTimeout(() => { try { w.print(); } catch (e) {} }, 150);
   return true;
+}
+
+// --- Motor de documentos via Google Docs (saída IDÊNTICA ao modelo) ----------
+// Quando configurado (config.js: documentos.engine + templates + pasta), gera o
+// documento a partir do Google Doc oficial via /api/gerar-documento: sai com
+// logo/cabeçalho/rodapé/fonte idênticos. Desligado, o chamador cai na ponte
+// window.print(). Best-effort: qualquer falha devolve false e o chamador imprime.
+function docEngineEnabled() {
+  const d = window.PLATFORM_CONFIG && window.PLATFORM_CONFIG.documentos;
+  return !!(d && d.engine && d.templates && d.driveFolderId);
+}
+
+// Baixa o PDF (base64) devolvido pelo backend como arquivo.
+function downloadBase64Pdf(b64, filename) {
+  const bin = atob(b64), arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = filename.endsWith('.pdf') ? filename : filename + '.pdf';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// tipo: chave em documentos.templates ('termo' | 'contratoServico'). Devolve
+// true se gerou pelo Google Docs; false (sem quebrar) para o chamador imprimir.
+async function gerarDocumentoGoogle(tipo, filename, fields, parcelas) {
+  if (!docEngineEnabled()) return false;
+  const cfg = window.PLATFORM_CONFIG.documentos;
+  const templateId = (cfg.templates || {})[tipo];
+  if (!templateId) { console.warn('motor de docs: template não configurado para', tipo); return false; }
+  try {
+    const res = await fetch('/api/gerar-documento', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateId, folderId: cfg.driveFolderId, filename, fields, parcelas: parcelas || [] }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || !j.ok) { console.warn('gerar-documento:', j && j.error); showToast('Falha no motor Google Docs — gerando por impressão.'); return false; }
+    if (j.pdfBase64) downloadBase64Pdf(j.pdfBase64, filename);
+    showToast('Documento gerado e salvo no Drive.');
+    return true;
+  } catch (e) { console.warn('gerar-documento falhou:', e); return false; }
 }
 
 // ============== PONTO — Atualização 8 (item 7) ==============
