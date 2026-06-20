@@ -15,13 +15,15 @@
 // (Editor) o Doc modelo e a pasta de saída com o e-mail da service account.
 //
 // Variáveis de ambiente (na Vercel — NUNCA no Git):
-//   GOOGLE_SA_KEY = JSON da service account (string única)
+//   GOOGLE_SA_KEY        = JSON da service account (string única)
+//   DOC_DRIVE_FOLDER_ID  = id da pasta de saída (o destino NÃO vem do navegador,
+//                          para ninguém redirecionar as cópias geradas)
 //
 // SETUP (uma vez):
 //   1. Ter os modelos como Google Docs com os {{campos}} (já existem).
 //   2. Compartilhar cada Doc modelo + a pasta de saída com o e-mail da SA (Editor).
-//   3. Colar os Doc IDs e o folder ID em config.js (PLATFORM_CONFIG.documentos)
-//      e ligar `engine: true`.
+//   3. Colar os Doc IDs em config.js (PLATFORM_CONFIG.documentos) e ligar
+//      `engine: true`; pôr o id da pasta em DOC_DRIVE_FOLDER_ID na Vercel.
 // ============================================================================
 const crypto = require('crypto');
 
@@ -169,8 +171,13 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'método não permitido' }); return; }
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-    const { templateId, folderId, filename, fields, parcelas } = body;
-    if (!templateId || !folderId) { res.status(400).json({ error: 'templateId/folderId ausente' }); return; }
+    const { templateId, filename, fields, parcelas } = body;
+    // Pasta de saída vem SÓ da env (confiável). NÃO confiar em body.folderId:
+    // senão um chamador não autenticado poderia redirecionar as cópias para uma
+    // pasta dele (o templateId/folderId ficam no config.js, visível no navegador).
+    const folderId = process.env.DOC_DRIVE_FOLDER_ID;
+    if (!templateId) { res.status(400).json({ error: 'templateId ausente' }); return; }
+    if (!folderId) { res.status(500).json({ error: 'DOC_DRIVE_FOLDER_ID não configurada' }); return; }
     if (!process.env.GOOGLE_SA_KEY) { res.status(500).json({ error: 'GOOGLE_SA_KEY não configurada' }); return; }
 
     const sa = JSON.parse(process.env.GOOGLE_SA_KEY);

@@ -14,7 +14,8 @@
 //   GOOGLE_SA_KEY         = JSON da service account (string única)
 //   SUPABASE_URL          = URL do projeto Supabase
 //   SUPABASE_SERVICE_ROLE = chave service_role (secreta)
-//   PONTO_SHEET_ID        = (opcional) sobrepõe o id que vem no body
+//   PONTO_SHEET_ID        = id da planilha-espelho (OBRIGATÓRIO; o destino NÃO
+//                           vem do navegador, para ninguém redirecionar o espelho)
 //
 // A service account precisa apenas que a PLANILHA esteja compartilhada com ela
 // como Editor — NÃO precisa de delegação de domínio (ver PLANO 3.4).
@@ -269,8 +270,11 @@ module.exports = async (req, res) => {
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const { action, profileId, weekStart } = body;
-    const sheetId = process.env.PONTO_SHEET_ID || body.sheetId;
-    if (!sheetId) { res.status(400).json({ error: 'sheetId ausente' }); return; }
+    // Destino vem SÓ da env (confiável). NÃO confiar em body.sheetId: senão um
+    // chamador não autenticado redirecionaria o espelho (nomes/e-mails dos
+    // membros) para uma planilha dele compartilhada com a service account.
+    const sheetId = process.env.PONTO_SHEET_ID;
+    if (!sheetId) { res.status(500).json({ error: 'PONTO_SHEET_ID não configurada' }); return; }
     if (!process.env.GOOGLE_SA_KEY) { res.status(500).json({ error: 'GOOGLE_SA_KEY não configurada' }); return; }
 
     const sa = JSON.parse(process.env.GOOGLE_SA_KEY);

@@ -3883,7 +3883,7 @@ function imprimirTermo(titulo, corpoHtml) {
 // window.print(). Best-effort: qualquer falha devolve false e o chamador imprime.
 function docEngineEnabled() {
   const d = window.PLATFORM_CONFIG && window.PLATFORM_CONFIG.documentos;
-  return !!(d && d.engine && d.templates && d.driveFolderId);
+  return !!(d && d.engine && d.templates);   // pasta de saída fica na env do servidor
 }
 
 // Baixa o PDF (base64) devolvido pelo backend como arquivo.
@@ -3908,7 +3908,7 @@ async function gerarDocumentoGoogle(tipo, filename, fields, parcelas) {
     const res = await fetch('/api/gerar-documento', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ templateId, folderId: cfg.driveFolderId, filename, fields, parcelas: parcelas || [] }),
+      body: JSON.stringify({ templateId, filename, fields, parcelas: parcelas || [] }),
     });
     const j = await res.json().catch(() => ({}));
     if (!res.ok || !j.ok) { console.warn('gerar-documento:', j && j.error); showToast('Falha no motor Google Docs — gerando por impressão.'); return false; }

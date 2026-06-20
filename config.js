@@ -94,9 +94,10 @@ window.PLATFORM_CONFIG = {
     //
     // Para ligar: (1) ter os modelos como Google Docs com os {{campos}};
     // (2) COMPARTILHAR cada Doc + a pasta de saída com o e-mail da service
-    // account (Editor); (3) colar os IDs abaixo e pôr engine:true.
+    // account (Editor); (3) colar os Doc IDs abaixo e pôr engine:true; (4) pôr o
+    // id da PASTA na env DOC_DRIVE_FOLDER_ID da Vercel (não fica aqui — o destino
+    // não pode vir do navegador, senão um chamador redirecionaria as cópias).
     // O Doc ID está na URL: .../document/d/<ESTE_ID>/edit
-    // O folder ID está na URL da pasta: .../folders/<ESTE_ID>
     // Cada EJ usa os SEUS próprios Docs — é assim que o produto é multi-EJ.
     // ==========================================================================
     engine: true,
@@ -104,7 +105,7 @@ window.PLATFORM_CONFIG = {
       termo:           '1MnhFtCnh111c-oDNCAs8cT0A3dsr7lF_lMCfvh1g1hY',   // Google Doc do Termo de Desligamento
       contratoServico: '1Tl91BjIaT28J2OdnUCyZQJwfkKCCTK4UwGv-RMnfoYY',   // Google Doc do Contrato de Prestação de Serviços
     },
-    driveFolderId: '12OgutADJPaQpnOECKDNp1EjyX4OfZu5O',   // pasta do Drive onde as cópias geradas são salvas
+    // A pasta de saída é definida no SERVIDOR: env DOC_DRIVE_FOLDER_ID (Vercel).
 
     empresa: {
       razaoSocial: 'Integre Júnior Consultoria em Engenharia',
