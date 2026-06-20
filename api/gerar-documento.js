@@ -136,8 +136,10 @@ async function fillParcelasTable(token, docId, parcelas) {
   if (toInsert > 0) {
     const reqs = [];
     for (let i = 0; i < toInsert; i++) {
+      // Insere SEMPRE abaixo do cabeçalho (rowIndex 0, que sempre existe). Assim
+      // funciona tanto se a tabela vier só com cabeçalho quanto com 1 linha vazia.
       reqs.push({ insertTableRow: {
-        tableCellLocation: { tableStartLocation: { index: found.startIndex }, rowIndex: 1, columnIndex: 0 },
+        tableCellLocation: { tableStartLocation: { index: found.startIndex }, rowIndex: 0, columnIndex: 0 },
         insertBelow: true,
       }});
     }
