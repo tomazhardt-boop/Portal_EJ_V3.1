@@ -580,12 +580,21 @@
     <div class="sub">Membro: <b id="pen-membro-nome">—</b></div>
     <div class="form-row">
       <label>Cartão</label>
-      <select id="pen-cor" onchange="populatePenaltyReasons()">
-        <option value="">— selecionar —</option>
-        <option value="verde">🟢 Verde (2 pontos)</option>
-        <option value="amarelo">🟡 Amarelo (3 pontos)</option>
-        <option value="vermelho">🔴 Vermelho (6 pontos)</option>
-      </select>
+      <input type="hidden" id="pen-cor" value="" />
+      <div id="pen-cor-cards" style="display:flex;gap:12px;">
+        <div class="pen-card-opt" data-cor="verde" onclick="selectPenaltyColor('verde')" style="cursor:pointer;flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;border:1px solid var(--gray-200);border-radius:8px;">
+          <span style="width:26px;height:36px;background:#16a34a;border-radius:3px;border:1px solid rgba(0,0,0,.3);box-shadow:0 1px 2px rgba(0,0,0,.25);"></span>
+          <span style="font-size:12px;font-weight:600;">Verde</span><span style="font-size:11px;color:var(--gray-500);">2 pontos</span>
+        </div>
+        <div class="pen-card-opt" data-cor="amarelo" onclick="selectPenaltyColor('amarelo')" style="cursor:pointer;flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;border:1px solid var(--gray-200);border-radius:8px;">
+          <span style="width:26px;height:36px;background:#facc15;border-radius:3px;border:1px solid rgba(0,0,0,.3);box-shadow:0 1px 2px rgba(0,0,0,.25);"></span>
+          <span style="font-size:12px;font-weight:600;">Amarelo</span><span style="font-size:11px;color:var(--gray-500);">3 pontos</span>
+        </div>
+        <div class="pen-card-opt" data-cor="vermelho" onclick="selectPenaltyColor('vermelho')" style="cursor:pointer;flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;border:1px solid var(--gray-200);border-radius:8px;">
+          <span style="width:26px;height:36px;background:#dc2626;border-radius:3px;border:1px solid rgba(0,0,0,.3);box-shadow:0 1px 2px rgba(0,0,0,.25);"></span>
+          <span style="font-size:12px;font-weight:600;">Vermelho</span><span style="font-size:11px;color:var(--gray-500);">6 pontos</span>
+        </div>
+      </div>
     </div>
     <div class="form-row">
       <label>Justificativa</label>

@@ -734,7 +734,11 @@ function renderDashboard() {
            style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--gray-50);border-radius:10px;cursor:pointer;transition:background .15s;"
            onmouseover="this.style.background='var(--blue-50)'" onmouseout="this.style.background='var(--gray-50)'">
         <div class="avatar sm">${initials(m.name)}</div>
-        <div><div style="font-weight:600;font-size:13px;">${gesc(m.name)}</div><div style="font-size:11px;color:var(--gray-500);">${gesc(m.role)} · ${gesc(m.sector)}</div></div>
+        <div style="min-width:0;">
+          <div style="font-weight:600;font-size:13px;">${gesc(m.name)}</div>
+          <div style="font-size:11px;color:var(--gray-500);">${gesc(m.role)} · ${gesc(m.sector)}</div>
+        </div>
+        <div style="margin-left:auto;flex-shrink:0;">${penaltyDeck(m, 'sm')}</div>
       </div>`).join('');
   }
 }
@@ -2977,14 +2981,8 @@ function renderMembros() {
           </select></td>
           <td>${setorPadCell}</td>
           <td>${gesc(m.entryDate || '—')}</td>
-          <td>${statTag}${reterTag}${penaltyMembCell(m, isSelf)}</td>
-          <td style="text-align:right;white-space:nowrap;">
-            ${canEditMembers ? `
-            <button class="btn btn-ghost" style="font-size:12px;" onclick="toggleStatusByName(${jsArg(m.name)})">${m.status === 'Ativo' ? '⏸ Desativar' : '▶ Ativar'}</button>
-            <button class="btn btn-ghost" style="font-size:12px;color:#dc2626;" onclick="openDesligarMembro(${jsArg(m.name)})">Desligar</button>
-            ${!isSelf ? `<button class="btn btn-ghost" style="font-size:12px;color:#991b1b;" onclick="excluirMembroPermanente(${jsArg(m.name)})" title="Apaga o registro do banco — só para teste/erro">Excluir</button>` : ''}
-            ` : '<span style="font-size:12px;color:var(--gray-400);">—</span>'}
-          </td>
+          <td>${statTag}${reterTag}<div style="margin-top:4px;">${penaltyDeck(m, 'sm')}</div></td>
+          <td style="text-align:right;white-space:nowrap;">${memberActionsCell(m, isSelf, canEditMembers)}</td>
         </tr>`;
       }).join('');
   // Esconde o card "Adicionar membro" quando é só-leitura.
@@ -3058,7 +3056,7 @@ function toggleStatusByName(name) {
 // ============================================================================
 const PENALTY_DEFS = {
   verde:    { label: 'Verde',    points: 2, color: '#16a34a' },
-  amarelo:  { label: 'Amarelo',  points: 3, color: '#d97706' },
+  amarelo:  { label: 'Amarelo',  points: 3, color: '#facc15' },
   vermelho: { label: 'Vermelho', points: 6, color: '#dc2626' },
 };
 const PENALTY_REASONS = {
@@ -3097,10 +3095,20 @@ function openPenaltyModal(name) {
   if (!canPenalize()) { showToast('Sem permissão para aplicar penalidades.'); return; }
   penaltyCtx = { memberName: name };
   const lbl = document.getElementById('pen-membro-nome'); if (lbl) lbl.textContent = name;
-  const cor = document.getElementById('pen-cor'); if (cor) cor.value = '';
-  populatePenaltyReasons();
+  selectPenaltyColor('');   // limpa a cor escolhida e as justificativas
   const dt = document.getElementById('pen-data'); if (dt) dt.value = dateInputISO(appToday());
   document.getElementById('modal-penalidade').classList.add('active');
+}
+
+// Seleção da cor por CARTÕES (não dropdown): destaca o escolhido e carrega as justificativas.
+function selectPenaltyColor(cor) {
+  const inp = document.getElementById('pen-cor'); if (inp) inp.value = cor || '';
+  document.querySelectorAll('#pen-cor-cards .pen-card-opt').forEach(el => {
+    const sel = el.dataset.cor === cor;
+    el.style.outline = sel ? '3px solid var(--blue-500)' : '1px solid var(--gray-200)';
+    el.style.opacity = (!cor || sel) ? '1' : '.5';
+  });
+  populatePenaltyReasons();
 }
 
 // Justificativas dependem da cor escolhida (tabela fixa por cartão).
@@ -3159,28 +3167,53 @@ async function clearPenalties(memberName) {
   showToast(`Advertências de ${memberName} zeradas.`);
 }
 
-// Célula da lista de Membros (ao lado do status): contador de pontos (todos veem)
-// + botão "Penalidade" (só quem pode aplicar; nunca no próprio registro).
-function penaltyMembCell(m, isSelf) {
-  const pts = penaltyPoints(m);
-  const cor = pts >= PENALTY_WARN_2 ? '#dc2626' : pts >= PENALTY_WARN_1 ? '#d97706' : '#6b7280';
-  const badge = pts > 0 ? `<span title="Pontos de advertência" style="display:inline-block;margin-left:6px;background:${cor};color:#fff;font-size:10px;padding:1px 6px;border-radius:999px;">${pts} pts</span>` : '';
-  const btn = (canPenalize() && !isSelf)
-    ? `<div style="margin-top:4px;"><button class="btn btn-ghost" style="font-size:12px;color:#b45309;" onclick="openPenaltyModal(${jsArg(m.name)})">⚠ Penalidade</button></div>`
-    : '';
-  return badge + btn;
+// Ícone de cartão no estilo "cartão de futebol": retângulo vertical na cor do cartão.
+function penaltyCardIcon(color, tip, size) {
+  const c = (PENALTY_DEFS[color] || { color: '#6b7280' }).color;
+  const h = size === 'sm' ? 16 : 22, w = Math.round(h * 0.68);
+  return `<span title="${gesc(tip || '')}" style="display:inline-block;width:${w}px;height:${h}px;background:${c};border-radius:2px;border:1px solid rgba(0,0,0,.3);box-shadow:0 1px 1px rgba(0,0,0,.18);vertical-align:middle;"></span>`;
 }
 
-// Cartões (chips) para o perfil. `manage` mostra o ✕ de remoção. Todos veem os cartões.
+// "Baralho" de cartões — lista de Membros e dashboard. Os cartões se SOBREPÕEM
+// (vê-se só o ladinho/cor de cada um); mostra os últimos 5 e, se houver mais,
+// um "+N". Todos veem; quanto mais cartões, mais aparecem (até 5 + contador).
+function penaltyDeck(m, size) {
+  const cards = m.penalties || [];
+  if (!cards.length) return '';
+  const total = cards.length, shown = cards.slice(-5);
+  const h = size === 'sm' ? 18 : 24, w = Math.round(h * 0.68), edge = 5, ov = w - edge;
+  const rects = shown.map((p, i) => {
+    const c = (PENALTY_DEFS[p.color] || { color: '#6b7280' }).color;
+    return `<span style="display:inline-block;width:${w}px;height:${h}px;background:${c};border-radius:2px;border:1px solid rgba(0,0,0,.35);box-shadow:0 1px 2px rgba(0,0,0,.25);${i ? `margin-left:-${ov}px;` : ''}"></span>`;
+  }).join('');
+  const more = total > 5 ? `<span style="margin-left:5px;font-size:11px;font-weight:700;color:var(--gray-500);">+${total - 5}</span>` : '';
+  return `<span style="display:inline-flex;align-items:center;vertical-align:middle;" title="${penaltyPoints(m)} pontos · ${total} cartão(ões)">${rects}${more}</span>`;
+}
+
+// Ações da linha de Membros: ativar/desativar + desligar (quem gere membros) e
+// "Penalidade" (Presidente/Diretor, nunca no próprio). O antigo "Excluir" foi removido.
+function memberActionsCell(m, isSelf, canEditMembers) {
+  const a = [];
+  if (canEditMembers) {
+    a.push(`<button class="btn btn-ghost" style="font-size:12px;" onclick="toggleStatusByName(${jsArg(m.name)})">${m.status === 'Ativo' ? '⏸ Desativar' : '▶ Ativar'}</button>`);
+    a.push(`<button class="btn btn-ghost" style="font-size:12px;color:#dc2626;" onclick="openDesligarMembro(${jsArg(m.name)})">Desligar</button>`);
+  }
+  if (canPenalize() && !isSelf) {
+    a.push(`<button class="btn btn-ghost" style="font-size:12px;color:#b45309;" onclick="openPenaltyModal(${jsArg(m.name)})">⚠ Penalidade</button>`);
+  }
+  return a.length ? a.join(' ') : '<span style="font-size:12px;color:var(--gray-400);">—</span>';
+}
+
+// Cartões do perfil (ícones de cartão de futebol). `manage` mostra o ✕ de remoção.
 function penaltyCardsHtml(m, manage) {
   const cards = m.penalties || [];
   if (!cards.length) return '<div class="u-muted text-13">Nenhuma advertência.</div>';
-  return '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + cards.map(p => {
-    const d = PENALTY_DEFS[p.color] || { color: '#6b7280', label: p.color };
+  return '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">' + cards.map(p => {
+    const d = PENALTY_DEFS[p.color] || { label: p.color };
     const dt = p.date ? p.date.split('-').reverse().join('/') : '';
-    const tip = `${p.reason}${dt ? ' · ' + dt : ''}${p.by ? ' · por ' + p.by : ''}`;
-    const x = manage ? `<span style="cursor:pointer;margin-left:6px;font-weight:700;" onclick="removePenalty(${jsArg(m.name)}, ${jsArg(String(p.id))})">×</span>` : '';
-    return `<span title="${gesc(tip)}" style="display:inline-flex;align-items:center;background:${d.color};color:#fff;font-size:11px;padding:2px 8px;border-radius:999px;">${gesc(d.label)} (${p.points})${x}</span>`;
+    const tip = `${d.label || p.color} (${p.points}) — ${p.reason}${dt ? ' · ' + dt : ''}${p.by ? ' · por ' + p.by : ''}`;
+    const x = manage ? `<span style="cursor:pointer;font-weight:700;color:var(--gray-400);font-size:15px;line-height:1;" onclick="removePenalty(${jsArg(m.name)}, ${jsArg(String(p.id))})">×</span>` : '';
+    return `<span style="display:inline-flex;align-items:center;gap:3px;">${penaltyCardIcon(p.color, tip)}${x}</span>`;
   }).join('') + '</div>';
 }
 
