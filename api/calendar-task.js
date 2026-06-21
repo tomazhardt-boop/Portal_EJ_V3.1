@@ -31,6 +31,7 @@
 //      só precisa GANHAR a delegação acima — o ponto-sync não usa delegação.)
 // ============================================================================
 const crypto = require('crypto');
+const { requireUser, AuthError } = require('./_auth');
 
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 
@@ -177,6 +178,7 @@ async function actionDelete(sa, taskId) {
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'método não permitido' }); return; }
   try {
+    await requireUser(req);  // só usuário logado (JWT do Supabase); ver api/_auth.js
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const { action, taskId } = body;
     if (!taskId) { res.status(400).json({ error: 'taskId ausente' }); return; }
@@ -191,6 +193,7 @@ module.exports = async (req, res) => {
 
     res.status(200).json(out);
   } catch (e) {
+    if (e instanceof AuthError) { res.status(e.status).json({ error: e.message }); return; }
     console.error('calendar-task erro:', e);
     res.status(500).json({ error: String(e && e.message || e) });
   }

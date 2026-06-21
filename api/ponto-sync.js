@@ -21,6 +21,7 @@
 // como Editor — NÃO precisa de delegação de domínio (ver PLANO 3.4).
 // ============================================================================
 const crypto = require('crypto');
+const { requireUser, AuthError } = require('./_auth');
 
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const TAB_ATIVOS = 'Membros ativos';
@@ -268,6 +269,7 @@ async function actionSyncAll(token, sheetId) {
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'método não permitido' }); return; }
   try {
+    await requireUser(req);  // só usuário logado (JWT do Supabase); ver api/_auth.js
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const { action, profileId, weekStart } = body;
     // Destino vem SÓ da env (confiável). NÃO confiar em body.sheetId: senão um
@@ -289,6 +291,7 @@ module.exports = async (req, res) => {
 
     res.status(200).json(out);
   } catch (e) {
+    if (e instanceof AuthError) { res.status(e.status).json({ error: e.message }); return; }
     console.error('ponto-sync erro:', e);
     res.status(500).json({ error: String(e && e.message || e) });
   }

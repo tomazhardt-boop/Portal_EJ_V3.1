@@ -3902,6 +3902,19 @@ function downloadBase64Pdf(b64, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
+// Header de autenticação para os endpoints /api: manda o token de acesso (JWT)
+// da sessão Supabase do usuário logado. O backend valida esse token (ver
+// api/_auth.js) e recusa chamadas não autenticadas. Sem sessão (modo offline ou
+// deslogado), volta {} — o backend trata como não autenticado.
+async function apiAuthHeaders() {
+  try {
+    if (!sbClient) return {};
+    const { data } = await sbClient.auth.getSession();
+    const token = data && data.session && data.session.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch (e) { return {}; }
+}
+
 // tipo: chave em documentos.templates ('termo' | 'contratoServico'). Devolve
 // true se gerou pelo Google Docs; false (sem quebrar) para o chamador imprimir.
 async function gerarDocumentoGoogle(tipo, filename, fields, parcelas) {
@@ -3912,7 +3925,7 @@ async function gerarDocumentoGoogle(tipo, filename, fields, parcelas) {
   try {
     const res = await fetch('/api/gerar-documento', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await apiAuthHeaders()) },
       body: JSON.stringify({ templateId, filename, fields, parcelas: parcelas || [] }),
     });
     const j = await res.json().catch(() => ({}));
@@ -3980,7 +3993,7 @@ async function pontoSyncSheet(action, profileId, weekStart) {
   try {
     await fetch('/api/ponto-sync', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await apiAuthHeaders()) },
       body: JSON.stringify({
         action,
         sheetId: window.GOOGLE_CONFIG.pontoSheetId,
@@ -4004,7 +4017,7 @@ async function calendarTaskSync(action, taskId) {
   try {
     await fetch('/api/calendar-task', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await apiAuthHeaders()) },
       body: JSON.stringify({ action, taskId }),
     });
   } catch (e) { console.warn('calendar-task (best-effort) falhou:', e); }

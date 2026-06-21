@@ -26,6 +26,7 @@
 //      `engine: true`; pôr o id da pasta em DOC_DRIVE_FOLDER_ID na Vercel.
 // ============================================================================
 const crypto = require('crypto');
+const { requireUser, AuthError } = require('./_auth');
 
 const SCOPE = 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive';
 
@@ -172,6 +173,7 @@ async function fillParcelasTable(token, docId, parcelas) {
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'método não permitido' }); return; }
   try {
+    await requireUser(req);  // só usuário logado (JWT do Supabase); ver api/_auth.js
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const { templateId, filename, fields, parcelas } = body;
     // Pasta de saída vem SÓ da env (confiável). NÃO confiar em body.folderId:
@@ -206,6 +208,7 @@ module.exports = async (req, res) => {
       pdfBase64,
     });
   } catch (e) {
+    if (e instanceof AuthError) { res.status(e.status).json({ error: e.message }); return; }
     console.error('gerar-documento erro:', e);
     res.status(500).json({ error: String(e && e.message || e) });
   }
