@@ -3301,6 +3301,11 @@ function estadoCivilGenero(estadoCivil, genero) {
 // inscrito/inscrita (contrato) conforme o gênero do representante.
 function inscritoGenero(genero) { return genero === 'Feminino' ? 'inscrita' : 'inscrito'; }
 
+// Os modelos já trazem a palavra "Rua" antes do marcador (ex.: "à Rua {{Rua}}").
+// Se o usuário digitou "Rua das Flores", removemos o "Rua " (ou "R.", "Rua.")
+// inicial para não duplicar. Outros logradouros (Avenida, etc.) ficam intactos.
+function semRua(v) { return String(v == null ? '' : v).replace(/^\s*r(?:ua)?\.?\s+/i, '').trim(); }
+
 // Substitui {{campo}} pelos valores do dicionário (com escape de HTML — os
 // valores são texto puro). Placeholder sem valor vira ''.
 function preencherModelo(template, dados) {
@@ -3436,7 +3441,7 @@ function gerarTermoDesligamento(m, motivoTexto, dataDeslISO) {
     'Dia desligamento': desl.dia, 'Mês desligamento': desl.mes, 'Ano desligamento': desl.ano,
     'RG': di.rg, 'CPF': di.cpf, 'nacionalidade': (di.nacionalidade || 'brasileira').toLowerCase(),
     'Solteiro': estadoCivilGenero(di.estadoCivil, di.genero),
-    'Rua': en.rua, 'Numero': en.numero, 'Apartamento': apto, 'Bairro': en.bairro,
+    'Rua': semRua(en.rua), 'Numero': en.numero, 'Apartamento': apto, 'Bairro': en.bairro,
     'Cidade': en.cidade, 'Estado': en.estado, 'CEP': en.cep,
     'Motivo': motivoTexto,
     'Dia': emiss.dia, 'Mês': emiss.mes, 'Ano': emiss.ano,
@@ -3736,14 +3741,14 @@ function montarContratoServico(d) {
   const emp = docEmpresa();
   const dados = {
     // Contratante — empresa
-    'Nome Fantasia': d.empNome, 'Rua': d.empRua, 'Número': d.empNum, 'Bairro': d.empBairro,
+    'Nome Fantasia': d.empNome, 'Rua': semRua(d.empRua), 'Número': d.empNum, 'Bairro': d.empBairro,
     'Cidade/Estado': d.empCidUf, 'CEP da Empresa': d.empCep, 'CNPJ': d.empCnpj,
     // Representante
     'Nome completo': d.repNome, 'Nacionalidade': d.repNac, 'Estado civil': d.repEstCiv,
     'Profissão': d.repProf, 'RG': d.repRg, 'Órgão emissor': d.repOrgao, 'CPF': d.repCpf,
     'portador': d.repGenero === 'Feminino' ? 'portadora' : 'portador',
     'inscrito': inscritoGenero(d.repGenero),
-    'Rua do representante': d.repRua, 'Número do representante': d.repNum,
+    'Rua do representante': semRua(d.repRua), 'Número do representante': d.repNum,
     'Bairro do representante': d.repBairro, 'Cidade/Estado do representante': d.repCidUf,
     'CEP do representante': d.repCep,
     // CONTRATADA (EJ, via config)
@@ -3771,14 +3776,14 @@ function contratoFieldsParaDoc(d) {
   const w1 = tInfo(d.test1), w2 = tInfo(d.test2);
   const fields = {
     // Contratante — empresa
-    'Nome Fantasia': d.empNome, 'Rua': d.empRua, 'Número': d.empNum, 'Bairro': d.empBairro,
+    'Nome Fantasia': d.empNome, 'Rua': semRua(d.empRua), 'Número': d.empNum, 'Bairro': d.empBairro,
     'Cidade/Estado': d.empCidUf, 'CEP da Empresa': d.empCep, 'CNPJ': d.empCnpj,
     // Representante
     'Nome completo': d.repNome, 'Nacionalidade': d.repNac, 'Estado civil': d.repEstCiv,
     'Profissão': d.repProf, 'RG': d.repRg, 'Órgão emissor': d.repOrgao, 'CPF': d.repCpf,
     'portador': d.repGenero === 'Feminino' ? 'portadora' : 'portador',
     'inscrito': inscritoGenero(d.repGenero),
-    'Rua do representante': d.repRua, 'Número do representante': d.repNum,
+    'Rua do representante': semRua(d.repRua), 'Número do representante': d.repNum,
     'Bairro do representante': d.repBairro, 'Cidade/Estado do representante': d.repCidUf,
     'CEP do representante': d.repCep,
     // Projeto
