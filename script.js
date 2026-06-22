@@ -730,12 +730,12 @@ function renderDashboard() {
   const membrosListEl = document.getElementById('dash-membros-lista');
   if (membrosListEl) {
     membrosListEl.innerHTML = members.filter(m=>m.status==='Ativo').map(m => `
-      <div onclick="openMemberProfile(${jsArg(m.name)})"
+      <div class="dash-membro-row" onclick="openMemberProfile(${jsArg(m.name)})"
            style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--gray-50);border-radius:10px;cursor:pointer;transition:background .15s;"
            onmouseover="this.style.background='var(--blue-50)'" onmouseout="this.style.background='var(--gray-50)'">
         <div class="avatar sm">${initials(m.name)}</div>
         <div style="min-width:0;">
-          <div style="font-weight:600;font-size:13px;">${gesc(m.name)}</div>
+          <div class="dash-membro-name" style="font-weight:600;font-size:13px;">${gesc(m.name)}</div>
           <div style="font-size:11px;color:var(--gray-500);">${gesc(m.role)} · ${gesc(m.sector)}</div>
         </div>
         <div style="margin-left:auto;flex-shrink:0;">${penaltyDeck(m, 'sm')}</div>
@@ -775,9 +775,10 @@ function openMemberProfile(name) {
       <div class="u-col gap-6">
         ${active.map(p=>`<div class="mini-list-row"><b>${gesc(p.name)}</b><span class="tag">${gesc(p.sector)}</span></div>`).join('')}
       </div>` : ''}
+    ${isDesligado(m) ? '' : `
     <div class="section-label">Advertências (${penaltyPoints(m)} pts)</div>
     ${penaltyCardsHtml(m, canPenalize())}
-    ${(canPenalize() && (m.penalties || []).length) ? `<div style="margin-top:8px;"><button class="btn btn-ghost" style="font-size:12px;color:var(--red-700);" onclick="clearPenalties(${jsArg(m.name)})">Zerar advertências</button></div>` : ''}`;
+    ${(canPenalize() && (m.penalties || []).length) ? `<div style="margin-top:8px;"><button class="btn btn-ghost" style="font-size:12px;color:var(--red-700);" onclick="clearPenalties(${jsArg(m.name)})">Zerar advertências</button></div>` : ''}`}`;
   document.getElementById('membro-perfil-content').innerHTML = content;
   document.getElementById('modal-membro-perfil').classList.add('active');
 }
@@ -2550,6 +2551,9 @@ function renderCapacitacoes() {
   const container=document.getElementById('cap-container'); if(!container) return;
   const canAdd=(currentUser.role==='Presidente'||currentUser.role==='Diretor');
   const canEditCaps=can('capacitacao.edit');   // todos os níveis menos Trainee
+  // Diretoria (Presidente/Diretor) acessa QUALQUER capacitação — nunca fica
+  // bloqueada pela ordem da trilha (o sequenciamento vale só p/ os demais).
+  const capsSemBloqueio=(currentUser.role==='Presidente'||currentUser.role==='Diretor');
   container.innerHTML=`<div class="cap-tree">
     ${Object.entries(capTree).map(([key,col])=>`
       <div class="cap-col-group">
@@ -2558,7 +2562,7 @@ function renderCapacitacoes() {
           ${col.tracks.map((track,ti)=>`
             <div class="cap-track">
               ${track.map((cap,ci)=>{
-                const locked=ci>0&&!track[ci-1].done;
+                const locked=!capsSemBloqueio&&ci>0&&!track[ci-1].done;
                 const cls = cap.done ? 'done' : locked ? 'locked' : '';
                 // Nós disponíveis recebem menu (marcar concluído p/ todos; editar só p/ não-trainee).
                 const ctxAttr = locked ? '' : `data-col="${key}" data-track="${ti}" data-idx="${ci}"`;
@@ -2966,7 +2970,7 @@ function renderMembros() {
         const reterTag = (m.status !== 'Ativo' && m.excluirEm)
           ? `<div style="font-size:10px;color:#b45309;margin-top:3px;">Desligado ${fmtData(m.desligadoEm)} · recuperável até ${fmtData(m.excluirEm)}</div>`
           : '';
-        return `<tr>
+        return `<tr class="${isDesligado(m) ? 'memb-row desligado' : ''}">
           <td>
             <div style="display:flex;align-items:center;gap:10px;">
               <div class="avatar sm">${initials(m.name)}</div>
@@ -2981,7 +2985,7 @@ function renderMembros() {
           </select></td>
           <td>${setorPadCell}</td>
           <td>${gesc(m.entryDate || '—')}</td>
-          <td>${statTag}${reterTag}<div style="margin-top:4px;">${penaltyDeck(m, 'sm')}</div></td>
+          <td>${statTag}${reterTag}${isDesligado(m) ? '' : `<div style="margin-top:4px;">${penaltyDeck(m, 'sm')}</div>`}</td>
           <td style="text-align:right;white-space:nowrap;">${memberActionsCell(m, isSelf, canEditMembers)}</td>
         </tr>`;
       }).join('');
@@ -3091,8 +3095,15 @@ let penaltyCtx = null;   // { memberName }
 function canPenalize(u = currentUser) { return !!u && (u.role === 'Presidente' || u.role === 'Diretor'); }
 function penaltyPoints(m) { return (m.penalties || []).reduce((s, p) => s + (p.points || 0), 0); }
 
+// Membro desligado (saiu da empresa): some da lista do dashboard (filtro Ativo),
+// não recebe mais penalidades e seus cartões deixam de aparecer — teoricamente
+// não faz mais parte da EJ. Na lista de Membros fica acinzentado (recuperável).
+function isDesligado(m) { return !!(m && m.desligadoEm); }
+
 function openPenaltyModal(name) {
   if (!canPenalize()) { showToast('Sem permissão para aplicar penalidades.'); return; }
+  const mm = members.find(x => x.name === name);
+  if (mm && isDesligado(mm)) { showToast('Membro desligado não recebe penalidades.'); return; }
   penaltyCtx = { memberName: name };
   const lbl = document.getElementById('pen-membro-nome'); if (lbl) lbl.textContent = name;
   selectPenaltyColor('');   // limpa a cor escolhida e as justificativas
@@ -3198,7 +3209,7 @@ function memberActionsCell(m, isSelf, canEditMembers) {
     a.push(`<button class="btn btn-ghost" style="font-size:12px;" onclick="toggleStatusByName(${jsArg(m.name)})">${m.status === 'Ativo' ? '⏸ Desativar' : '▶ Ativar'}</button>`);
     a.push(`<button class="btn btn-ghost" style="font-size:12px;color:#dc2626;" onclick="openDesligarMembro(${jsArg(m.name)})">Desligar</button>`);
   }
-  if (canPenalize() && !isSelf) {
+  if (canPenalize() && !isSelf && !isDesligado(m)) {
     a.push(`<button class="btn btn-ghost" style="font-size:12px;color:#b45309;" onclick="openPenaltyModal(${jsArg(m.name)})">⚠ Penalidade</button>`);
   }
   return a.length ? a.join(' ') : '<span style="font-size:12px;color:var(--gray-400);">—</span>';

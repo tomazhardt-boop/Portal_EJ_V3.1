@@ -799,6 +799,10 @@ select:focus, input:focus, textarea:focus {
 .proj-card.concluded { opacity: .6; background: var(--gray-50); }
 .proj-card.concluded:hover { opacity: 1; }
 
+/* Membro desligado: linha esmaecida na lista de Membros (igual ao concluído) */
+tr.memb-row.desligado { opacity: .55; }
+tr.memb-row.desligado:hover { opacity: 1; }
+
 /* M1: Informações e Membros vinculados — botão alinhado no fundo */
 .card.flex-card {
   display: flex;
@@ -1360,6 +1364,10 @@ html.dark .sidebar {
 html.dark .toast { background: #2b333f; color: #f0f6fc; }
 /* Hover de linha de tabela visível sobre o fundo escuro. */
 html.dark tr:hover td { background: var(--gray-100); }
+
+/* Lista de membros do dashboard: no hover o fundo clareia (--blue-50), então no
+   modo noturno o NOME (texto claro) sumiria. Força o nome para escuro no hover. */
+html.dark .dash-membro-row:hover .dash-membro-name { color: #111827; }
 
 /* Caixas claras de tom de marca (--blue-50): a rampa azul é preservada de
    propósito, então elas ficavam BRANCAS demais no escuro. Amenizamos para um
