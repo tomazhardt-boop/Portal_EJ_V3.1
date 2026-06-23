@@ -21,7 +21,7 @@
 // como Editor — NÃO precisa de delegação de domínio (ver PLANO 3.4).
 // ============================================================================
 const crypto = require('crypto');
-const { requireUser, AuthError } = require('./_auth');
+const { requireUser, callerProfile, isDiretoria, AuthError } = require('./_auth');
 
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const TAB_ATIVOS = 'Membros ativos';
@@ -269,9 +269,23 @@ async function actionSyncAll(token, sheetId) {
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'método não permitido' }); return; }
   try {
-    await requireUser(req);  // só usuário logado (JWT do Supabase); ver api/_auth.js
+    const user = await requireUser(req);  // só usuário logado (JWT do Supabase); ver api/_auth.js
+    const prof = await callerProfile(req, user);   // cargo do chamador (null se auth desligado)
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const { action, profileId, weekStart } = body;
+    // Autorização (só quando o cargo é resolvível): 'sync' = o próprio membro
+    // (ou diretoria); 'sync-all'/'move-exmembro'/'restore' = só diretoria — senão
+    // qualquer membro poderia mexer na linha de outro na planilha compartilhada.
+    if (prof) {
+      const diretoria = isDiretoria(prof);
+      if (action === 'sync') {
+        if (!diretoria && String(prof.id) !== String(profileId)) {
+          res.status(403).json({ error: 'sem permissão para sincronizar outro membro' }); return;
+        }
+      } else if (!diretoria) {
+        res.status(403).json({ error: 'ação restrita à diretoria' }); return;
+      }
+    }
     // Destino vem SÓ da env (confiável). NÃO confiar em body.sheetId: senão um
     // chamador não autenticado redirecionaria o espelho (nomes/e-mails dos
     // membros) para uma planilha dele compartilhada com a service account.

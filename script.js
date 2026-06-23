@@ -346,6 +346,8 @@ function closeModal(id)   { document.getElementById(id).classList.remove('active
 // Usado, por ex., na troca de cargo de um membro (ação não-trivial).
 let _confirmYes = null, _confirmNo = null;
 function confirmAction(message, onYes, onNo, opts = {}) {
+  const modal = document.getElementById('modal-confirm');
+  if (modal && modal.classList.contains('active')) return;   // já há uma confirmação aberta — não atropela a pendente
   _confirmYes = onYes || null; _confirmNo = onNo || null;
   const msg = document.getElementById('confirm-msg'); if (msg) msg.innerHTML = message;
   const ttl = document.getElementById('confirm-title'); if (ttl) ttl.textContent = opts.title || 'Confirmar';
@@ -3020,15 +3022,7 @@ function renderPermissions() {
       confirmAction(
         `Alterar o cargo de <b>${gesc(m.name)}</b> de <b>${gesc(oldRole)}</b> para <b>${gesc(value)}</b>?`
           + `<br><span style="color:var(--gray-500);">Isso muda o nível de acesso e o que ${gesc(primeiro)} enxerga no portal.</span>`,
-        () => {
-          m.role = value;
-          // Atualização 6.1: ao virar Trainee, zera setor; ao sair de Trainee, define um setor padrão.
-          if (value === 'Trainee') m.sector = '—';
-          else if (m.sector === '—' || !m.sector) m.sector = 'Projetos';
-          dbUpdateMember(m, { role: m.role, sector: m.sector, access: m.access });
-          renderPermissions();
-          showToast(`${m.name}: cargo → ${value}`);
-        },
+        () => applyMembroRoleChange(m, value),   // reusa a lógica única (recalcula access, setor/padrinho, grava, re-renderiza)
         () => renderPermissions(),
         { title: 'Confirmar mudança de cargo', okLabel: 'Alterar cargo' }
       );

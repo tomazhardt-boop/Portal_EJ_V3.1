@@ -57,4 +57,27 @@ async function requireUser(req) {
   return res.json();
 }
 
-module.exports = { requireUser, AuthError };
+// Cargo do chamador (profiles) para AUTORIZAÇÃO nos endpoints. Lê a própria linha
+// com o token do usuário — a policy `p_read` (select liberado a autenticados)
+// permite. Devolve { id, role, sector } ou null quando: validação desligada (env
+// ausente), sem perfil vinculado, ou falha de leitura. Os handlers só aplicam a
+// regra de cargo quando vem não-nulo (defesa em profundidade, sem fail-closed que
+// trave usuário legítimo por hipo de infra).
+async function callerProfile(req, user) {
+  const url = process.env.SUPABASE_URL;
+  const apikey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE;
+  if (!url || !apikey || !user || !user.id) return null;
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/profiles?select=id,role,sector&user_id=eq.${encodeURIComponent(user.id)}`,
+      { headers: { apikey, Authorization: `Bearer ${bearerToken(req)}` } }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json().catch(() => []);
+    return (Array.isArray(rows) && rows[0]) ? rows[0] : null;
+  } catch (e) { return null; }
+}
+
+function isDiretoria(p) { return !!p && (p.role === 'Presidente' || p.role === 'Diretor'); }
+
+module.exports = { requireUser, callerProfile, isDiretoria, AuthError };

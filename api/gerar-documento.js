@@ -26,7 +26,14 @@
 //      `engine: true`; pôr o id da pasta em DOC_DRIVE_FOLDER_ID na Vercel.
 // ============================================================================
 const crypto = require('crypto');
-const { requireUser, AuthError } = require('./_auth');
+const { requireUser, callerProfile, AuthError } = require('./_auth');
+
+// Allowlist dos Docs modelo (env). Sem isso, o templateId vinha do navegador e um
+// chamador autenticado poderia COPIAR/EXPORTAR qualquer Doc que a service account
+// acessa (inclusive os documentos já gerados, com CPF/RG de membros). Mesma lógica
+// do DOC_DRIVE_FOLDER_ID: o destino/origem não pode vir do cliente.
+//   DOC_TEMPLATE_TERMO_ID, DOC_TEMPLATE_CONTRATO_ID = ids dos 2 Docs modelo.
+const TEMPLATE_ALLOWLIST = [process.env.DOC_TEMPLATE_TERMO_ID, process.env.DOC_TEMPLATE_CONTRATO_ID].filter(Boolean);
 
 const SCOPE = 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive';
 
@@ -173,14 +180,25 @@ async function fillParcelasTable(token, docId, parcelas) {
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'método não permitido' }); return; }
   try {
-    await requireUser(req);  // só usuário logado (JWT do Supabase); ver api/_auth.js
+    const user = await requireUser(req);  // só usuário logado (JWT do Supabase); ver api/_auth.js
+    // Autorização: Trainee/Membro não geram documentos (na matriz não têm acesso a
+    // contratos/membros). Só aplica quando dá p/ resolver o cargo (auth ligado).
+    const prof = await callerProfile(req, user);
+    if (prof && (prof.role === 'Trainee' || prof.role === 'Membro')) {
+      res.status(403).json({ error: 'sem permissão para gerar documentos' }); return;
+    }
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const { templateId, filename, fields, parcelas } = body;
     // Pasta de saída vem SÓ da env (confiável). NÃO confiar em body.folderId:
-    // senão um chamador não autenticado poderia redirecionar as cópias para uma
-    // pasta dele (o templateId/folderId ficam no config.js, visível no navegador).
+    // senão um chamador poderia redirecionar as cópias para uma pasta dele.
     const folderId = process.env.DOC_DRIVE_FOLDER_ID;
     if (!templateId) { res.status(400).json({ error: 'templateId ausente' }); return; }
+    // templateId precisa ser um dos Docs modelo conhecidos (allowlist via env).
+    if (TEMPLATE_ALLOWLIST.length) {
+      if (!TEMPLATE_ALLOWLIST.includes(templateId)) { res.status(403).json({ error: 'template não autorizado' }); return; }
+    } else {
+      console.warn('[gerar-documento] DOC_TEMPLATE_TERMO_ID/DOC_TEMPLATE_CONTRATO_ID ausentes — allowlist de template DESLIGADA. Defina-as na Vercel para travar.');
+    }
     if (!folderId) { res.status(500).json({ error: 'DOC_DRIVE_FOLDER_ID não configurada' }); return; }
     if (!process.env.GOOGLE_SA_KEY) { res.status(500).json({ error: 'GOOGLE_SA_KEY não configurada' }); return; }
 
