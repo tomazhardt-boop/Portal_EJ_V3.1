@@ -1110,6 +1110,7 @@ async function submitAviso() {
   if (googleCalConnected() && recipients.length) {
     const ok = await gmailSend({ to: memberEmail(currentUser), bcc: recipients.join(', '), subject: `Aviso: ${title}`, html: avisoEmailHtml(novo) });
     if (ok) showToast(`Aviso notificado por e-mail a ${recipients.length} membro(s).`);
+    else showToast('Aviso publicado, mas o e-mail de notificação falhou.');   // ANTES: falha do e-mail era silenciosa
   } else if (googleCalEnabled() && recipients.length) {
     showToast('Dica: conecte sua conta Google (em Avisos) para notificar por e-mail.');
   }
@@ -4258,10 +4259,10 @@ function pontoSheetEnabled() { return !!(window.GOOGLE_CONFIG && window.GOOGLE_C
 
 // action: 'sync' (com/sem weekStart) | 'move-exmembro' | 'restore' | 'sync-all'
 async function pontoSyncSheet(action, profileId, weekStart) {
-  if (!pontoSheetEnabled()) return;
-  if (action !== 'sync-all' && !profileId) return;
+  if (!pontoSheetEnabled()) return { ok: false, skipped: true };
+  if (action !== 'sync-all' && !profileId) return { ok: false, skipped: true };
   try {
-    await fetch('/api/ponto-sync', {
+    const res = await fetch('/api/ponto-sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await apiAuthHeaders()) },
       body: JSON.stringify({
@@ -4271,7 +4272,14 @@ async function pontoSyncSheet(action, profileId, weekStart) {
         weekStart: weekStart || null,
       }),
     });
-  } catch (e) { console.warn('ponto-sync (best-effort) falhou:', e); }
+    if (!res.ok) {                                   // HTTP 4xx/5xx: ANTES era engolido em silêncio
+      const j = await res.json().catch(() => ({}));
+      const error = j.error || `HTTP ${res.status}`;
+      console.warn('ponto-sync falhou:', error);
+      return { ok: false, error };
+    }
+    return { ok: true };
+  } catch (e) { console.warn('ponto-sync (rede) falhou:', e); return { ok: false, error: 'sem conexão' }; }
 }
 
 // ---- Tarefa de projeto → Google Agenda do responsável (Modelo B) ----
@@ -4283,22 +4291,33 @@ function taskCalendarEnabled() { return !!(window.GOOGLE_CONFIG && window.GOOGLE
 
 // action: 'upsert' (criar/atualizar) | 'delete' (apagar o evento)
 async function calendarTaskSync(action, taskId) {
-  if (!taskCalendarEnabled() || !taskId) return;
+  if (!taskCalendarEnabled() || !taskId) return { ok: false, skipped: true };
   try {
-    await fetch('/api/calendar-task', {
+    const res = await fetch('/api/calendar-task', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await apiAuthHeaders()) },
       body: JSON.stringify({ action, taskId }),
     });
-  } catch (e) { console.warn('calendar-task (best-effort) falhou:', e); }
+    if (!res.ok) {                                   // ANTES: erro HTTP era silencioso (evento não criado, sem aviso)
+      const j = await res.json().catch(() => ({}));
+      const error = j.error || `HTTP ${res.status}`;
+      console.warn('calendar-task falhou:', error);
+      showToast('Tarefa salva, mas não foi possível atualizar o Google Agenda do responsável.');
+      return { ok: false, error };
+    }
+    return { ok: true };
+  } catch (e) { console.warn('calendar-task (rede) falhou:', e); showToast('Google Agenda indisponível — a tarefa foi salva.'); return { ok: false, error: 'sem conexão' }; }
 }
 
 // Botão admin: garante uma linha para cada membro ativo na planilha (backfill).
 async function pontoSyncAllActive(btn) {
   if (!pontoSheetEnabled()) { showToast('Espelho da planilha não está configurado.'); return; }
   const restore = btn ? setBtnLoading(btn) : null;
-  try { await pontoSyncSheet('sync-all'); showToast('Planilha sincronizada com os membros ativos.'); }
-  finally { if (restore) restore(); }
+  try {
+    const r = await pontoSyncSheet('sync-all');     // ANTES: mostrava "sincronizada" mesmo em falha (falso sucesso)
+    if (r.ok) showToast('Planilha sincronizada com os membros ativos.');
+    else showToast('Falha ao sincronizar a planilha: ' + (r.error || 'erro desconhecido') + '.');
+  } finally { if (restore) restore(); }
 }
 
 // Inicia/para o cronômetro. Ao parar, pergunta se guarda — se sim, soma no acumulador semanal.
@@ -4346,7 +4365,8 @@ function pontoSubmitSemana() {
   if (!confirm(`Enviar ${worked} h trabalhadas e ${meetings} h em reuniões?\n\nNão será possível alterar até a próxima segunda-feira.`)) return;
   pontoData.semana = { worked, meetings, weekKey: pontoWeekKey() };
   dbSavePonto({ worked, meetings });
-  pontoSyncSheet('sync', memberIdByName(currentUser.name), pontoMondayISO());
+  pontoSyncSheet('sync', memberIdByName(currentUser.name), pontoMondayISO())
+    .then(r => { if (r && !r.ok && !r.skipped) showToast('Horas salvas; a planilha de horas não atualizou (' + (r.error || 'falha') + ').'); });
   renderPonto();
   showToast('Horas da semana registradas.');
 }
@@ -4360,7 +4380,8 @@ function pontoSetEngajamento(v) {
   if (!confirm(`Confirmar engajamento ${v}/10?\n\nNão será possível alterar até a próxima segunda-feira.`)) return;
   pontoData.engajamento = { value: v, weekKey: pontoWeekKey() };
   dbSavePonto({ engajamento: v });
-  pontoSyncSheet('sync', memberIdByName(currentUser.name), pontoMondayISO());
+  pontoSyncSheet('sync', memberIdByName(currentUser.name), pontoMondayISO())
+    .then(r => { if (r && !r.ok && !r.skipped) showToast('Engajamento salvo; a planilha de horas não atualizou (' + (r.error || 'falha') + ').'); });
   renderPonto();
   showToast(`Engajamento da semana: ${v}/10.`);
 }
@@ -5391,12 +5412,14 @@ async function enterApp(email) {
     // que os ~11 awaits sequenciais de antes. O overlay cobre a espera.
     showAppLoading('Carregando seus dados…');
     try {
-      await Promise.all([
+      const results = await Promise.all([
         loadProjectsFromDB(), loadAvisosFromDB(), loadMetasFromDB(),
         loadCalendarFromDB(), loadDriveFromDB(), loadLegadoFromDB(), loadInstitutionalFromDB(),
         loadCapsFromDB(), loadActivitiesFromDB(), loadValidationsFromDB(), loadPontoFromDB(),
         loadPenaltiesFromDB(),
       ]);
+      // ANTES: falha de carga só ia pro console. Agora avisa (1 toast) se algo não veio do servidor.
+      if (results.some(r => r === false)) showToast('Alguns dados não carregaram do servidor. Recarregue a página se algo parecer faltando.');
     } finally { hideAppLoading(); }
   }
   hideLogin();
