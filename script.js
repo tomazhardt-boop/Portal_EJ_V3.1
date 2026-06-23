@@ -341,6 +341,23 @@ function openNewProject() { if (!can('projeto.create'))    { showToast('Sem perm
 function openEditPerfil() { populateEditPerfil(); document.getElementById('modal-perfil-edit').classList.add('active'); }
 function closeModal(id)   { document.getElementById(id).classList.remove('active'); }
 
+// Confirmação genérica (#modal-confirm). `message` aceita HTML. `onYes`/`onNo`
+// são callbacks; `opts` permite customizar título e o rótulo do botão de ação.
+// Usado, por ex., na troca de cargo de um membro (ação não-trivial).
+let _confirmYes = null, _confirmNo = null;
+function confirmAction(message, onYes, onNo, opts = {}) {
+  _confirmYes = onYes || null; _confirmNo = onNo || null;
+  const msg = document.getElementById('confirm-msg'); if (msg) msg.innerHTML = message;
+  const ttl = document.getElementById('confirm-title'); if (ttl) ttl.textContent = opts.title || 'Confirmar';
+  const ok  = document.getElementById('confirm-yes');   if (ok)  ok.textContent  = opts.okLabel || 'Confirmar';
+  document.getElementById('modal-confirm').classList.add('active');
+}
+function confirmResolve(ok) {
+  closeModal('modal-confirm');
+  const yes = _confirmYes, no = _confirmNo; _confirmYes = _confirmNo = null;
+  if (ok) { if (yes) yes(); } else if (no) no();
+}
+
 function openManageMembers() {
   const p = projects.find(x => x.id === activeProjectId);
   if (!p) return;
@@ -2993,16 +3010,32 @@ function renderPermissions() {
     <td>${m.self?'':` <button class="btn btn-ghost" onclick="toggleStatus(${gi})" style="font-size:12px;">${m.status==='Ativo'?'Desativar':'Reativar'}</button>`}</td>
     </tr>`;}).join('');
   tbody.querySelectorAll('select').forEach(sel=>sel.addEventListener('change',e=>{
-    const i=parseInt(e.target.dataset.i),f=e.target.dataset.field;
-    members[i][f]=e.target.value;
-    // Atualização 6.1: ao virar Trainee, zera setor; ao sair de Trainee, define um setor padrão.
+    const i=parseInt(e.target.dataset.i),f=e.target.dataset.field,value=e.target.value;
+    // Troca de cargo pede confirmação (igual à lista de Membros); cancelar só
+    // re-renderiza (o select volta ao cargo atual). Demais campos seguem direto.
     if (f === 'role') {
-      if (e.target.value === 'Trainee') members[i].sector = '—';
-      else if (members[i].sector === '—' || !members[i].sector) members[i].sector = 'Projetos';
-      renderPermissions();
+      if (value === members[i].role) return;
+      const m=members[i], oldRole=m.role, primeiro=m.name.split(' ')[0];
+      confirmAction(
+        `Alterar o cargo de <b>${gesc(m.name)}</b> de <b>${gesc(oldRole)}</b> para <b>${gesc(value)}</b>?`
+          + `<br><span style="color:var(--gray-500);">Isso muda o nível de acesso e o que ${gesc(primeiro)} enxerga no portal.</span>`,
+        () => {
+          m.role = value;
+          // Atualização 6.1: ao virar Trainee, zera setor; ao sair de Trainee, define um setor padrão.
+          if (value === 'Trainee') m.sector = '—';
+          else if (m.sector === '—' || !m.sector) m.sector = 'Projetos';
+          dbUpdateMember(m, { role: m.role, sector: m.sector, access: m.access });
+          renderPermissions();
+          showToast(`${m.name}: cargo → ${value}`);
+        },
+        () => renderPermissions(),
+        { title: 'Confirmar mudança de cargo', okLabel: 'Alterar cargo' }
+      );
+      return;
     }
+    members[i][f]=value;
     dbUpdateMember(members[i], { role: members[i].role, sector: members[i].sector, access: members[i].access });
-    showToast(`${members[i].name}: ${f} → ${e.target.value}`);
+    showToast(`${members[i].name}: ${f} → ${value}`);
   }));
   const si=document.getElementById('perm-search'),rs=document.getElementById('perm-role'),ss=document.getElementById('perm-sector');
   if(si&&!si._wired){si._wired=true;si.addEventListener('input',()=>{permFilter.search=si.value;renderPermissions();});}
@@ -3095,27 +3128,51 @@ function renderMembros() {
 function onMembroFieldChange(i, field, value) {
   if (!can('membros.edit')) { showToast('Sem permissão para editar membros.'); renderMembros(); return; }
   const m = members[i]; if (!m) return;
+
+  // Trocar de cargo não é trivial: muda nível de acesso, setor/padrinho e o que a
+  // pessoa enxerga no portal. Pede confirmação antes de aplicar — cancelar só
+  // re-renderiza (o select volta ao cargo atual). Uma PROMOÇÃO dispara, no próximo
+  // login do membro, o banner de parabéns (ver checkPromotionNotice).
   if (field === 'role') {
-    m.role = value;
-    const accessMap = { 'Presidente':'Total','Diretor':'Diretoria','Gerente':'Gerência','Membro':'Membro','Trainee':'Trainee' };
-    m.access = accessMap[value] || 'Membro';
-    if (value === 'Trainee') {
-      m.sector = '—';
-      if (typeof m.points !== 'number') m.points = 0;
-      if (!m.padrinho) m.padrinho = ''; // admin escolhe na própria lista
-    } else {
-      if (m.sector === '—' || !m.sector) m.sector = 'Projetos';
-      delete m.padrinho;
-    }
-  } else if (field === 'sector') {
-    m.sector = value;
-  } else if (field === 'padrinho') {
-    m.padrinho = value;
+    if (value === m.role) return;                 // sem mudança real
+    const oldRole = m.role, primeiro = m.name.split(' ')[0];
+    confirmAction(
+      `Alterar o cargo de <b>${gesc(m.name)}</b> de <b>${gesc(oldRole)}</b> para <b>${gesc(value)}</b>?`
+        + `<br><span style="color:var(--gray-500);">Isso muda o nível de acesso e o que ${gesc(primeiro)} enxerga no portal.</span>`,
+      () => applyMembroRoleChange(m, value),
+      () => { if (document.getElementById('memb-table'))        renderMembros();
+              if (document.getElementById('permissions-table')) renderPermissions(); },
+      { title: 'Confirmar mudança de cargo', okLabel: 'Alterar cargo' }
+    );
+    return;
   }
+
+  if (field === 'sector')        m.sector = value;
+  else if (field === 'padrinho') m.padrinho = value;
   dbUpdateMember(m, { role: m.role, sector: m.sector, access: m.access, padrinho: ('padrinho' in m ? m.padrinho : null) });
   if (document.getElementById('memb-table'))        renderMembros();
   if (document.getElementById('permissions-table')) renderPermissions();
   showToast(`${m.name}: ${field === 'padrinho' ? 'padrinho' : field} → ${value || '—'}`);
+}
+
+// Aplica de fato a troca de cargo (após confirmação). Espelha o acesso ao cargo e
+// ajusta setor/padrinho (Trainee não tem setor; efetivo não tem padrinho).
+function applyMembroRoleChange(m, value) {
+  m.role = value;
+  const accessMap = { 'Presidente':'Total','Diretor':'Diretoria','Gerente':'Gerência','Membro':'Membro','Trainee':'Trainee' };
+  m.access = accessMap[value] || 'Membro';
+  if (value === 'Trainee') {
+    m.sector = '—';
+    if (typeof m.points !== 'number') m.points = 0;
+    if (!m.padrinho) m.padrinho = ''; // admin escolhe na própria lista
+  } else {
+    if (m.sector === '—' || !m.sector) m.sector = 'Projetos';
+    delete m.padrinho;
+  }
+  dbUpdateMember(m, { role: m.role, sector: m.sector, access: m.access, padrinho: ('padrinho' in m ? m.padrinho : null) });
+  if (document.getElementById('memb-table'))        renderMembros();
+  if (document.getElementById('permissions-table')) renderPermissions();
+  showToast(`${m.name}: cargo → ${value}`);
 }
 
 function toggleStatusByName(name) {
@@ -3333,6 +3390,53 @@ function checkPenaltyNotices() {
   } catch (e) {}
 }
 
+// ----------------------------------------------------------------------------
+// PROMOÇÃO DE CARGO — banner de parabéns ao próprio membro, no login.
+// Compara o cargo ATUAL do membro com o último que ele já "reconheceu"
+// (last_seen_role, vindo do banco). Se subiu na hierarquia (ROLE_RANK), mostra o
+// banner UMA vez e marca o cargo como visto (ack). Online: persiste no Supabase
+// via RPC `ack_my_role` (cross-device, dispara 1×). Offline (protótipo): usa o
+// localStorage como baseline por navegador.
+// ----------------------------------------------------------------------------
+function checkPromotionNotice() {
+  const m = members.find(x => x.name === currentUser.name); if (!m) return;
+  const cur = m.role;
+  if (sbClient) {
+    const prev = m.lastSeenRole;
+    if (prev == null) { ackMyRole(m); return; }                 // sem baseline → só registra (sem banner)
+    if ((ROLE_RANK[cur] ?? -1) > (ROLE_RANK[prev] ?? -1)) showPromotionBanner(cur);
+    if (cur !== prev) ackMyRole(m);                             // atualiza o baseline (promoção ou rebaixamento)
+  } else {
+    const key = 'role_seen:' + currentUser.email;
+    const prev = localStorage.getItem(key);
+    if (prev == null) { try { localStorage.setItem(key, cur); } catch (e) {} return; }
+    if ((ROLE_RANK[cur] ?? -1) > (ROLE_RANK[prev] ?? -1)) showPromotionBanner(cur);
+    if (cur !== prev) { try { localStorage.setItem(key, cur); } catch (e) {} }
+  }
+}
+
+// Marca o cargo atual como visto: espelho local + RPC SECURITY DEFINER (a RLS não
+// deixa o membro comum escrever direto na própria linha de profiles).
+function ackMyRole(m) {
+  m.lastSeenRole = m.role;
+  if (sbClient) sbClient.rpc('ack_my_role').then(({ error }) => { if (error) console.warn('ack_my_role', error); });
+}
+
+// Banner comemorativo (card central) — reaproveita a explosão/cintilar de estrelas
+// do pódio. Fecha só no clique em "Entendi".
+function showPromotionBanner(role) {
+  const el = document.getElementById('promo-content'); if (!el) return;
+  el.innerHTML = `<div class="promo-arena">${podioSparklesHTML()}${podioBurstHTML()}
+      <div class="promo-inner">
+        ${rankStarsHTML()}
+        <div class="promo-title">Parabéns!</div>
+        <div class="promo-sub">Você foi promovido a</div>
+        <div class="promo-role">${gesc(role)}</div>
+      </div>
+    </div>`;
+  document.getElementById('modal-promo').classList.add('active');
+}
+
 // E-mail de advertência (ao cruzar 12 pts) — best-effort, conta Google do aplicador.
 async function sendPenaltyEmail(m, total) {
   if (typeof googleCalConnected !== 'function' || !googleCalConnected()) return;
@@ -3416,6 +3520,20 @@ function docCfg()         { return (window.PLATFORM_CONFIG && window.PLATFORM_CO
 function docEmpresa()     { return docCfg().empresa || {}; }
 function docSignatarios() { return docCfg().signatarios || {}; }
 
+// Membro que ocupa um cargo HOJE na plataforma (ativo). Usado para preencher os
+// nomes da diretoria nos documentos automaticamente (presidente, diretores).
+function membroNoCargo(role, sector) {
+  return members.find(m => m && m.status === 'Ativo' && m.role === role
+                        && (!sector || m.sector === sector)) || null;
+}
+// Nome de um signatário da config: quem ocupa o cargo de `s.match` agora; se o
+// cargo estiver vago, cai no nome fixo (`s.nome`). É o que torna "presidente nos
+// documentos" automático conforme o presidente ATUAL.
+function nomeSignatario(s) {
+  if (s && s.match) { const m = membroNoCargo(s.match.role, s.match.sector); if (m) return m.name; }
+  return (s && s.nome) || '';
+}
+
 // Os 6 motivos oficiais do termo de desligamento (texto do Forms/estatuto).
 // `maConduta` separa saída voluntária/curso (false) das hipóteses disciplinares (true).
 const MOTIVOS_DESLIGAMENTO = [
@@ -3450,11 +3568,12 @@ function camposFaltantesTermo(m) {
   return req.filter(([, v]) => !v || !String(v).trim()).map(([l]) => l);
 }
 
-// Bloco de assinaturas do termo: signatários da EJ (config) + o membro desligado.
+// Bloco de assinaturas do termo: signatários da EJ (nome = cargo atual) + o
+// membro desligado.
 function assinaturasTermo(m) {
   const cargo = (m.sector && m.sector !== '—') ? `${m.role} · ${m.sector}` : m.role;
   const linhas = (docSignatarios().termo || [])
-    .map(s => `<div class="line"></div><div class="who">${gesc(s.nome)} — ${gesc(s.cargo)}</div>`).join('');
+    .map(s => `<div class="line"></div><div class="who">${gesc(nomeSignatario(s))} — ${gesc(s.cargo)}</div>`).join('');
   return `<div class="doc-sign">${linhas}<div class="line"></div><div class="who">${gesc(m.name)} — ${gesc(cargo)}</div></div>`;
 }
 
@@ -3529,9 +3648,19 @@ function gerarTermoDesligamento(m, motivoTexto, dataDeslISO) {
   const cargo   = (m.sector && m.sector !== '—') ? `${m.role} · ${m.sector}` : m.role;
   const apto    = en.apartamento ? ` ${en.apartamento},` : '';
   const sig     = docSignatarios();
+  // Nomes da diretoria = quem ocupa o cargo HOJE (presidente e diretor de
+  // ADM/FIN); vago → fallback do config. O presidente vai no corpo
+  // ("representado por …") e ambos vão nas assinaturas via {{campos}}.
+  const termoSigs = sig.termo || [];
+  const presSlot  = termoSigs.find(s => s.match && s.match.role === 'Presidente') || termoSigs[0];
+  const admSlot   = termoSigs.find(s => s.match && s.match.role === 'Diretor' && s.match.sector === 'ADM/FIN') || termoSigs[1];
+  const presidenteNome = nomeSignatario(presSlot) || sig.representanteTermo || '';
+  const admFinNome     = nomeSignatario(admSlot);
   const dados = {
     'razaoSocial': emp.nomeCurto || 'Integre Júnior', 'cnpj': emp.cnpj || '', 'sede': emp.endereco || '',
-    'representante': sig.representanteTermo || (sig.termo && sig.termo[0] && sig.termo[0].nome) || '',
+    'representante': presidenteNome,
+    'Presidente': presidenteNome,
+    'Diretor ADM/FIN': admFinNome,
     'CidadeEmpresa': emp.cidade || 'Blumenau',
     'Nome': m.name, 'Cargo': cargo,
     'Dia entrada': entrada.dia, 'Mês entrada': entrada.mes, 'Ano entrada': entrada.ano,
@@ -3684,12 +3813,40 @@ function coletarDadosContrato() {
 
 // Qualificação da CONTRATADA (EJ) montada a partir dos signatários da config —
 // é o trecho "neste ato representada por seu diretor presidente, ...".
+// Endereço por extenso (para a qualificação) a partir do docInfo.endereco.
+// Os modelos usam "à Rua {{Rua}}", então aqui o prefixo "Rua " é explícito e o
+// semRua evita duplicar quando a pessoa digitou "Rua ..." no cadastro.
+function enderecoExtenso(en) {
+  if (!en || !en.rua) return '';
+  const apto = en.apartamento ? `, ${en.apartamento}` : '';
+  const cep  = en.cep ? `, CEP ${en.cep}` : '';
+  return `Rua ${semRua(en.rua)}, ${en.numero || ''}${apto}, ${en.bairro || ''}, ${en.cidade || ''}/${en.estado || ''}${cep}`;
+}
+
+// Qualificação da CONTRATADA (EJ) — trecho "neste ato representada por seu
+// diretor presidente, …, e pelo diretor de projetos, …". O NOME e os DADOS
+// (nacionalidade, estado civil, RG, CPF, endereço, concordância de gênero) de
+// cada diretor vêm do CADASTRO de quem ocupa o cargo HOJE (docInfo). Se o cargo
+// estiver vago, usa os dados fixos do config como fallback. Profissão não existe
+// no cadastro → "estudante" (config). Campo não preenchido sai como "—".
 function qualificacaoContratada() {
   const sigs = docSignatarios().contrato || [];
   return sigs.map((s, i) => {
-    const cargo = s.cargo || '';
-    const lig = i === 0 ? `neste ato representada por seu ${cargo.toLowerCase()}, ` : `e pelo ${cargo}, `;
-    return `${lig}${s.nome}, ${s.nacionalidade || 'brasileiro'}, ${s.estadoCivil || 'solteiro'}, ${s.profissao || 'estudante'}, portador do RG nº ${s.rg || '—'}, inscrito no CPF sob nº ${s.cpf || '—'}, residente e domiciliado na ${s.endereco || '—'}`;
+    const cargo = (s.cargo || '').toLowerCase();
+    const lig = i === 0 ? `neste ato representada por seu ${cargo}, ` : `e pelo ${cargo}, `;
+    const m  = s.match ? membroNoCargo(s.match.role, s.match.sector) : null;
+    const di = m ? (m.docInfo || {}) : null;          // dados do ocupante atual
+    const nome = m ? m.name : (s.nome || '');
+    const gen  = di ? (di.genero || '') : '';
+    const nac  = (di ? (di.nacionalidade || 'Brasileiro') : (s.nacionalidade || 'brasileiro')).toLowerCase();
+    const est  = (di ? estadoCivilGenero(di.estadoCivil, gen) : (s.estadoCivil || 'solteiro')).toLowerCase();
+    const prof = s.profissao || 'estudante';
+    const rg   = (di ? di.rg  : s.rg)  || '—';
+    const cpf  = (di ? di.cpf : s.cpf) || '—';
+    const end  = (di ? enderecoExtenso(di.endereco) : s.endereco) || '—';
+    const portador = gen === 'Feminino' ? 'portadora' : 'portador';
+    const domic    = gen === 'Feminino' ? 'domiciliada' : 'domiciliado';
+    return `${lig}${nome}, ${nac}, ${est}, ${prof}, ${portador} do RG nº ${rg}, ${inscritoGenero(gen)} no CPF sob nº ${cpf}, residente e ${domic} na ${end}`;
   }).join(', ');
 }
 
@@ -3709,7 +3866,7 @@ function buildTabelaParcelas(parcelas) {
 function buildAssinaturasContrato(d) {
   const emp = docEmpresa();
   const dirHtml = (docSignatarios().contrato || [])
-    .map(s => `<div class="who" style="margin:0 18px;"><b>${gesc(s.nome)}</b><br>${gesc(s.cargo)}</div>`).join('');
+    .map(s => `<div class="who" style="margin:0 18px;"><b>${gesc(nomeSignatario(s))}</b><br>${gesc(s.cargo)}</div>`).join('');
   const tInfo = (name) => {
     const m = members.find(x => x.name === name), di = (m && m.docInfo) || {};
     return `${gesc(name || '—')}<br>CPF: ${gesc(di.cpf || '—')} · RG: ${gesc(di.rg || '—')}`;
@@ -3866,12 +4023,22 @@ function montarContratoServico(d) {
 }
 
 // Campos do contrato no formato dos {{marcadores}} REAIS do Google Doc modelo
-// (nomes idênticos aos do template) + linhas de parcela para a tabela. A
-// CONTRATADA (EJ) e os diretores são FIXOS no próprio Doc — não entram aqui.
+// (nomes idênticos aos do template) + linhas de parcela para a tabela. O resto
+// da qualificação da CONTRATADA (EJ) é FIXO no Doc; só os NOMES da diretoria
+// (presidente + diretor de Projetos atuais) vão como {{campos}}, para o Doc
+// acompanhar quem ocupa o cargo hoje.
 function contratoFieldsParaDoc(d) {
   const tInfo = (name) => { const m = members.find(x => x.name === name), di = (m && m.docInfo) || {}; return { cpf: di.cpf || '', rg: di.rg || '' }; };
   const w1 = tInfo(d.test1), w2 = tInfo(d.test2);
+  const cSigs   = docSignatarios().contrato || [];
+  const presSlot = cSigs.find(s => s.match && s.match.role === 'Presidente') || cSigs[0];
+  const projSlot = cSigs.find(s => s.match && s.match.role === 'Diretor' && s.match.sector === 'Projetos') || cSigs[1];
   const fields = {
+    // Diretoria da CONTRATADA: nomes (cargo atual) + qualificação COMPLETA por
+    // extenso (dados do cadastro de quem ocupa o cargo hoje).
+    'Presidente': nomeSignatario(presSlot),
+    'Diretor de Projetos': nomeSignatario(projSlot),
+    'qualificacaoContratada': qualificacaoContratada(),
     // Contratante — empresa
     'Nome Fantasia': d.empNome, 'Rua': semRua(d.empRua), 'Número': d.empNum, 'Bairro': d.empBairro,
     'Cidade/Estado': d.empCidUf, 'CEP da Empresa': d.empCep, 'CNPJ': d.empCnpj,
@@ -4648,7 +4815,7 @@ async function authConfirmReset() {
 async function loadMembersFromDB() {
   if (!sbClient) return false;
   const { data, error } = await sbClient.from('profiles')
-    .select('id, name, email, role, sector, access, status, course, entry_date, caps_count, padrinho_id, points, doc_info');
+    .select('id, name, email, role, sector, access, status, course, entry_date, caps_count, padrinho_id, points, doc_info, last_seen_role');
   if (error || !Array.isArray(data)) { console.warn('Falha ao carregar membros do banco:', error?.message); return false; }
   const nameById = Object.fromEntries(data.map(r => [r.id, r.name]));
   const mapped = data.map(r => {
@@ -4657,6 +4824,7 @@ async function loadMembersFromDB() {
       access: r.access, status: r.status, course: r.course,
       entryDate: r.entry_date, capsCount: r.caps_count, points: r.points,
       docInfo: normDocInfo(r.doc_info),   // dados pessoais p/ documentos (jsonb)
+      lastSeenRole: r.last_seen_role ?? null,   // último cargo já visto pelo próprio membro (banner de promoção)
     };
     if (r.role === 'Trainee') m.padrinho = nameById[r.padrinho_id] || '';
     return m;
@@ -4729,6 +4897,7 @@ async function dbCreateMember(member) {
     access: member.access, status: member.status, course: member.course,
     entry_date: member.entryDate, caps_count: member.capsCount ?? 0, points: member.points ?? 0,
     doc_info: member.docInfo ?? {},
+    last_seen_role: member.role,   // baseline: o cargo de entrada já nasce "visto"
     padrinho_id: member.padrinho ? memberIdByName(member.padrinho) : null,
   }).select('id').single();
   if (error) { showToast('Erro ao criar no banco: ' + error.message); console.warn('dbCreateMember', error); return; }
@@ -5227,6 +5396,7 @@ async function enterApp(email) {
   applyModuleVisibility();      // esconde modais/blocos estáticos de módulos off
   if (!sbClient) loadPenaltiesLocal();   // offline: penalidades vêm do localStorage
   checkPenaltyNotices();                 // aviso na plataforma se o membro tem 6/12 pts
+  checkPromotionNotice();                // banner de parabéns se o membro foi promovido
   goTo(DEFAULT_PAGE);
 }
 

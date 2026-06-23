@@ -654,10 +654,40 @@ select:focus, input:focus, textarea:focus {
   .podio-spark,
   .podio-spot,
   .podio-spot .podio-avatar,
-  #modal-podio.active .modal { animation: none; }
+  #modal-podio.active .modal,
+  #modal-promo.active .modal,
+  .promo-inner { animation: none; }
   .podio-spark { opacity: .9; }
   .podio-burst { display: none; }
 }
+
+/* ===== Banner de parabéns por promoção (#modal-promo) ===== */
+/* Reaproveita a explosão/cintilar de estrelas do pódio (.podio-burst/.podio-spark)
+   e o pop de abertura. O card é centralizado e comemorativo, fecha só no clique. */
+#modal-promo .modal { overflow: hidden; text-align: center; }
+#modal-promo.active .modal { animation: podioModalPop .45s cubic-bezier(.2,1.2,.3,1) both; }
+
+.promo-arena {
+  position: relative;            /* ancora .podio-sparkles (inset:0) e .podio-burst (50%/50%) */
+  display: flex; align-items: center; justify-content: center;
+  min-height: 190px; padding: 22px 10px 10px;
+}
+.promo-inner { position: relative; z-index: 4; animation: promoInnerPop .55s cubic-bezier(.2,1.4,.35,1) both; }
+@keyframes promoInnerPop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+
+/* As 3 estrelas reaproveitadas do pódio, maiores e centradas acima do texto. */
+.promo-inner .rank-stars { position: static; transform: none; justify-content: center; margin-bottom: 10px; }
+.promo-inner .rank-star { width: 24px; height: 24px; animation: podioTwinkle 1.8s ease-in-out infinite; }
+.promo-inner .rank-star:nth-child(2) { width: 30px; height: 30px; animation-delay: .3s; }
+.promo-inner .rank-star:nth-child(3) { animation-delay: .6s; }
+
+.promo-title { font-size: 30px; font-weight: 800; color: var(--blue-600); line-height: 1.1; }
+.promo-sub   { font-size: 17px; color: var(--gray-700); margin-top: 8px; }
+.promo-role  { display: inline-block; margin-top: 4px; font-size: 19px; font-weight: 800; color: var(--gray-900); }
+
+/* Modo noturno: o pódio escurece os textos via .modal; aqui garantimos contraste. */
+html.dark .promo-sub  { color: var(--gray-200); }
+html.dark .promo-role { color: #fff; }
 
 @media (max-width: 600px) {
   .podio-stage { gap: 10px; }

@@ -116,19 +116,26 @@ window.PLATFORM_CONFIG = {
       cidade:      'Blumenau',
       estado:      'SC',
     },
+    // `match` liga cada signatário ao CARGO na plataforma: o nome é preenchido
+    // automaticamente por quem ocupa esse cargo HOJE (membro ativo). Se o cargo
+    // estiver vago, usa o `nome` fixo abaixo como fallback. Assim, ao trocar a
+    // diretoria, os documentos se atualizam sozinhos (não precisa editar aqui).
     signatarios: {
-      // Quem "representa" a EJ no cabeçalho do termo de desligamento.
+      // Quem "representa" a EJ no cabeçalho do termo (fallback do presidente).
       representanteTermo: 'Tiago Queiroz Borba',
-      // Assinaturas do termo de desligamento (nome + cargo).
+      // Assinaturas do termo de desligamento (nome + cargo). Nome = automático
+      // pelo `match`; `nome` é só o fallback se o cargo estiver vago.
       termo: [
-        { nome: 'Tiago Queiroz Borba',               cargo: 'Diretor Presidente' },
-        { nome: 'Pedro Henrique Freire da Trindade',  cargo: 'Diretor Administrativo Financeiro' },
+        { match: { role: 'Presidente' },                 cargo: 'Diretor Presidente',               nome: 'Tiago Queiroz Borba' },
+        { match: { role: 'Diretor', sector: 'ADM/FIN' },  cargo: 'Diretor Administrativo Financeiro',  nome: 'Pedro Henrique Freire da Trindade' },
       ],
       // Assinaturas do contrato. Precisam de qualificação completa porque o
-      // contrato as descreve por extenso (RG/CPF/endereço).
+      // contrato as descreve por extenso (RG/CPF/endereço). O NOME segue o
+      // `match` (presidente e diretor de Projetos atuais); RG/CPF/endereço
+      // continuam os daqui (ajustar quando a pessoa do cargo mudar).
       contrato: [
-        { nome: 'Tiago Queiroz Borba', cargo: 'Diretor Presidente',          nacionalidade: 'brasileiro', estadoCivil: 'solteiro', profissao: 'estudante', rg: '544525188', cpf: '468.302.078-51', endereco: 'Rua Leopoldo Wilhelm, 310, Velha, Blumenau/SC, CEP 89045140' },
-        { nome: 'Lucas Sampaio Gomes', cargo: 'Diretor de Projetos e Pesquisa', nacionalidade: 'brasileiro', estadoCivil: 'solteiro', profissao: 'estudante', rg: '7953858',   cpf: '085.350.209-93', endereco: 'Rua Wilhelm Budag, 45, Velha, Blumenau/SC, CEP 89045-090' },
+        { match: { role: 'Presidente' },                  cargo: 'Diretor Presidente',            nome: 'Tiago Queiroz Borba', nacionalidade: 'brasileiro', estadoCivil: 'solteiro', profissao: 'estudante', rg: '544525188', cpf: '468.302.078-51', endereco: 'Rua Leopoldo Wilhelm, 310, Velha, Blumenau/SC, CEP 89045140' },
+        { match: { role: 'Diretor', sector: 'Projetos' },  cargo: 'Diretor de Projetos e Pesquisa', nome: 'Lucas Sampaio Gomes', nacionalidade: 'brasileiro', estadoCivil: 'solteiro', profissao: 'estudante', rg: '7953858',   cpf: '085.350.209-93', endereco: 'Rua Wilhelm Budag, 45, Velha, Blumenau/SC, CEP 89045-090' },
       ],
     },
   },
