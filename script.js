@@ -3172,6 +3172,7 @@ function applyMembroRoleChange(m, value) {
   dbUpdateMember(m, { role: m.role, sector: m.sector, access: m.access, padrinho: ('padrinho' in m ? m.padrinho : null) });
   if (document.getElementById('memb-table'))        renderMembros();
   if (document.getElementById('permissions-table')) renderPermissions();
+  refreshProtoUserSelect();   // o rótulo do switcher (Modo Protótipo) mostra o cargo novo
   showToast(`${m.name}: cargo → ${value}`);
 }
 
@@ -3398,20 +3399,25 @@ function checkPenaltyNotices() {
 // via RPC `ack_my_role` (cross-device, dispara 1×). Offline (protótipo): usa o
 // localStorage como baseline por navegador.
 // ----------------------------------------------------------------------------
-function checkPromotionNotice() {
+// `opts.persist === false` (Modo Protótipo): SIMULA o login só para mostrar o
+// banner — não grava nada (nem no banco, nem no localStorage, nem no espelho em
+// memória), porque o usuário "logado de verdade" é o admin, não o membro trocado.
+function checkPromotionNotice(opts = {}) {
+  const persist = opts.persist !== false;
   const m = members.find(x => x.name === currentUser.name); if (!m) return;
   const cur = m.role;
   if (sbClient) {
     const prev = m.lastSeenRole;
-    if (prev == null) { ackMyRole(m); return; }                 // sem baseline → só registra (sem banner)
+    if (prev == null) { if (persist) ackMyRole(m); return; }     // sem baseline → só registra (sem banner)
     if ((ROLE_RANK[cur] ?? -1) > (ROLE_RANK[prev] ?? -1)) showPromotionBanner(cur);
-    if (cur !== prev) ackMyRole(m);                             // atualiza o baseline (promoção ou rebaixamento)
+    if (persist && cur !== prev) ackMyRole(m);                   // atualiza o baseline (promoção ou rebaixamento)
   } else {
     const key = 'role_seen:' + currentUser.email;
     const prev = localStorage.getItem(key);
-    if (prev == null) { try { localStorage.setItem(key, cur); } catch (e) {} return; }
+    const save = v => { if (persist) { try { localStorage.setItem(key, v); } catch (e) {} } };
+    if (prev == null) { save(cur); return; }
     if ((ROLE_RANK[cur] ?? -1) > (ROLE_RANK[prev] ?? -1)) showPromotionBanner(cur);
-    if (cur !== prev) { try { localStorage.setItem(key, cur); } catch (e) {} }
+    if (cur !== prev) save(cur);
   }
 }
 
@@ -4510,7 +4516,7 @@ function setCurrentUserFromMember(m) {
   const padrinho = m.role === 'Trainee' ? (m.padrinho || null) : null;
   Object.keys(currentUser).forEach(k => delete currentUser[k]);
   Object.assign(currentUser, {
-    name: m.name, role: m.role, sector: m.sector,
+    name: m.name, role: m.role, sector: m.sector, access: m.access,
     email: memberEmail(m),
     entryDate: m.entryDate || '—', course: m.course || '—',
     caps: [], avatar: initials(m.name), photo: null, self: true,
@@ -4535,6 +4541,10 @@ function protoSwitchUser(name) {
   const active = document.querySelector('.nav-item.active');
   if (active && !canSeePage(active.dataset.page)) goTo(DEFAULT_PAGE);
   else rerenderCurrentPage();
+  // Trocar de perfil no Modo Protótipo SIMULA um login: roda o aviso de promoção
+  // para dar pra testar o banner sem logout/login real. persist:false = simulação
+  // read-only (não marca como "visto", então dá pra repetir o teste).
+  checkPromotionNotice({ persist: false });
   showToast(`Agora logado como ${m.name} (${m.role}).`);
 }
 
