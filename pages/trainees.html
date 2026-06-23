@@ -11,7 +11,16 @@
 
 <div class="grid cols-2">
   <div class="card">
-    <div class="card-title">Ranking de Trainees</div>
+    <div class="card-title">
+      <span>Ranking de Trainees</span>
+      <button class="btn btn-ghost rank-expand-btn" onclick="openTraineePodium()" title="Ver pódio" aria-label="Ver pódio">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <rect x="3" y="13" width="5" height="8" rx="1"></rect>
+          <rect x="9.5" y="7" width="5" height="14" rx="1"></rect>
+          <rect x="16" y="10" width="5" height="11" rx="1"></rect>
+        </svg>
+      </button>
+    </div>
     <div id="trainee-ranking"></div>
   </div>
 

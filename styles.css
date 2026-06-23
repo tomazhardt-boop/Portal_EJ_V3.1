@@ -512,6 +512,163 @@ select:focus, input:focus, textarea:focus {
 .rank-info .role { font-size: 12px; color: var(--gray-500); }
 .rank-points { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; color: var(--blue-700); font-size: 16px; }
 
+/* ---- Pódio dos trainees (1º-3º) ---- */
+/* Só aparece com os pontos visíveis; em "ocultar pontos" o JS volta ao
+   .rank-pos numerado e estas classes nem são emitidas. */
+.rank-row.podium { border-radius: 10px; border-bottom-color: transparent; }
+.rank-row.podium-1 { background: linear-gradient(90deg, rgba(245,158,11,0.16), transparent 70%); }
+.rank-row.podium-2 { background: linear-gradient(90deg, rgba(148,163,184,0.16), transparent 70%); }
+.rank-row.podium-3 { background: linear-gradient(90deg, rgba(194,102,12,0.14), transparent 70%); }
+.rank-row.podium .name { font-weight: 700; }
+.rank-row.podium-1 .name { font-size: 15px; }
+
+/* Medalha: fita atrás + disco redondo com o número. */
+.rank-medal {
+  position: relative;
+  width: 40px; height: 50px;
+  flex-shrink: 0;
+}
+.rank-ribbon::before, .rank-ribbon::after {
+  content: ''; position: absolute; top: 6px;
+  width: 11px; height: 26px; border-radius: 2px;
+}
+.rank-ribbon::before { left: 9px;  transform: rotate(-13deg); background: var(--blue-500); }
+.rank-ribbon::after  { right: 9px; transform: rotate(13deg);  background: var(--blue-700); }
+.rank-disc {
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 13px;
+  border: 2px solid rgba(255,255,255,0.65);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.28);
+}
+.medal-1 .rank-disc { background: radial-gradient(circle at 35% 28%, #fde68a, #f59e0b); color: #7c2d12; }
+.medal-2 .rank-disc { background: radial-gradient(circle at 35% 28%, #f3f4f6, #9aa3b0); color: #374151; }
+.medal-3 .rank-disc { background: radial-gradient(circle at 35% 28%, #fcd0a3, #c2660c); color: #fff7ed; }
+
+/* Estrelas douradas sobre a medalha do 1º lugar (a do meio é maior). */
+.rank-stars {
+  position: absolute; top: -3px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: flex-end; gap: 1px; z-index: 2;
+}
+.rank-star { width: 10px; height: 10px; fill: #fbbf24; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
+.rank-star:nth-child(2) { width: 13px; height: 13px; }
+
+/* Botão de expandir o pódio (canto superior do card de ranking). */
+.rank-expand-btn { padding: 4px 8px; color: var(--blue-700); display: inline-grid; place-items: center; }
+.rank-expand-btn svg { display: block; }
+
+/* ---- Modal "Pódio dos Trainees" (degraus 2º-1º-3º) ---- */
+/* Independe do "ocultar pontos": sempre mostra colocação + pontos. */
+.podio-arena { position: relative; }
+.podio-stage { position: relative; z-index: 1; display: flex; align-items: flex-end; justify-content: center; gap: 22px; margin: 30px 0 6px; }
+.podio-spot { position: relative; display: flex; flex-direction: column; align-items: center; width: 150px; }
+.podio-spot .podio-avatar { width: 96px; height: 96px; font-size: 34px; margin-bottom: 10px; }
+.podio-spot.place-1 .podio-avatar { box-shadow: 0 0 0 3px #f59e0b; }
+.podio-spot.place-2 .podio-avatar { box-shadow: 0 0 0 3px #94a3b8; }
+.podio-spot.place-3 .podio-avatar { box-shadow: 0 0 0 3px #c2660c; }
+.podio-name { font-weight: 700; font-size: 15px; text-align: center; line-height: 1.2; }
+.podio-pts  { font-size: 13px; color: var(--gray-500); margin: 3px 0 12px; }
+.podio-step {
+  width: 100%; border-radius: 12px 12px 0 0;
+  display: grid; place-items: center;
+  font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 28px;
+  color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+.podio-spot.place-1 .podio-step { height: 150px; background: linear-gradient(180deg, #fbbf24, #f59e0b); }
+.podio-spot.place-2 .podio-step { height: 110px; background: linear-gradient(180deg, #cbd5e1, #94a3b8); }
+.podio-spot.place-3 .podio-step { height: 80px;  background: linear-gradient(180deg, #fcd0a3, #c2660c); }
+
+/* Estrelas do 1º lugar no modal: fluem acima do avatar (não absolutas) e maiores. */
+.podio-spot .rank-stars { position: static; transform: none; justify-content: center; margin-bottom: 6px; }
+.podio-spot .rank-star { width: 20px; height: 20px; }
+.podio-spot .rank-star:nth-child(2) { width: 26px; height: 26px; }
+
+/* Twinkle: as 3 estrelas do 1º lugar pulsam + giram de leve (escalonadas). */
+.podio-spot.place-1 .rank-star { transform-origin: center; animation: podioTwinkle 1.8s ease-in-out infinite; }
+.podio-spot.place-1 .rank-star:nth-child(2) { animation-delay: .3s; }
+.podio-spot.place-1 .rank-star:nth-child(3) { animation-delay: .6s; }
+@keyframes podioTwinkle {
+  0%, 100% { transform: scale(1)    rotate(0deg);  opacity: .85; }
+  50%      { transform: scale(1.25) rotate(12deg); opacity: 1; }
+}
+
+/* Estrelinhas cintilantes das laterais do palco (posição/tempo vêm do inline). */
+.podio-sparkles { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.podio-spark {
+  position: absolute; fill: #fbbf24; opacity: 0; transform-origin: center;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.18));
+  animation: podioSpark 2.2s ease-in-out infinite;
+}
+@keyframes podioSpark {
+  0%, 100% { opacity: 0;   transform: scale(.3) rotate(0deg); }
+  50%      { opacity: .95; transform: scale(1)  rotate(18deg); }
+}
+
+/* ===== Abertura "surpresa" do pódio ===== */
+/* O modal entra com um pop; o conteúdo não rola pra explosão não criar scroll. */
+#modal-podio .modal { overflow: hidden; }
+#modal-podio.active .modal { animation: podioModalPop .45s cubic-bezier(.2,1.2,.3,1) both; }
+@keyframes podioModalPop {
+  0%   { transform: scale(.7);  opacity: 0; }
+  60%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* Os degraus sobem em sequência (3º → 2º → 1º). */
+.podio-spot { animation: podioSpotIn .55s cubic-bezier(.2,.8,.25,1) both; }
+.podio-spot.place-3 { animation-delay: .05s; }
+.podio-spot.place-2 { animation-delay: .18s; }
+.podio-spot.place-1 { animation-delay: .34s; }
+@keyframes podioSpotIn { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Avatares "estouram" (scale com overshoot); o do 1º entra por último + ganha brilho. */
+.podio-spot .podio-avatar { animation: podioAvatarPop .5s cubic-bezier(.2,1.5,.4,1) both; }
+.podio-spot.place-3 .podio-avatar { animation-delay: .2s; }
+.podio-spot.place-2 .podio-avatar { animation-delay: .33s; }
+.podio-spot.place-1 .podio-avatar { animation: podioAvatarPop .5s cubic-bezier(.2,1.5,.4,1) .5s both, podioGoldGlow 1s ease-in-out 1s 2; }
+@keyframes podioAvatarPop { 0% { transform: scale(0); } 70% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes podioGoldGlow {
+  0%, 100% { box-shadow: 0 0 0 3px #f59e0b, 0 0 0 0 rgba(245,158,11,0); }
+  50%      { box-shadow: 0 0 0 3px #f59e0b, 0 0 24px 4px rgba(245,158,11,.85); }
+}
+
+/* Explosão de estrelas a partir do centro do palco (1×, some no fim). */
+.podio-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: 3; pointer-events: none; }
+.podio-burst-star {
+  position: absolute; left: 0; top: 0; opacity: 0; transform-origin: center;
+  transform: translate(-50%, -50%) scale(0);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+  animation: podioBurst .95s cubic-bezier(.15,.7,.3,1) both;
+}
+@keyframes podioBurst {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0) rotate(0deg); }
+  12%  { opacity: 1; }
+  65%  { opacity: 1; transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1.15) rotate(var(--rot)); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--tx) * 1.18), calc(-50% + var(--ty) * 1.18)) scale(.4) rotate(var(--rot)); }
+}
+
+/* Acessibilidade: nada de movimento p/ quem ativou "reduzir movimento" no SO. */
+@media (prefers-reduced-motion: reduce) {
+  .podio-spot.place-1 .rank-star,
+  .podio-spark,
+  .podio-spot,
+  .podio-spot .podio-avatar,
+  #modal-podio.active .modal { animation: none; }
+  .podio-spark { opacity: .9; }
+  .podio-burst { display: none; }
+}
+
+@media (max-width: 600px) {
+  .podio-stage { gap: 10px; }
+  .podio-spot { width: 100px; }
+  .podio-spot .podio-avatar { width: 66px; height: 66px; font-size: 24px; }
+  .podio-step { font-size: 20px; }
+  .podio-spot.place-1 .podio-step { height: 110px; }
+  .podio-spot.place-2 .podio-step { height: 82px; }
+  .podio-spot.place-3 .podio-step { height: 60px; }
+}
+
 /* Misc */
 .divider { height: 1px; background: var(--gray-200); margin: 16px 0; }
 .pill-row { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -1369,12 +1526,32 @@ html.dark tr:hover td { background: var(--gray-100); }
    modo noturno o NOME (texto claro) sumiria. Força o nome para escuro no hover. */
 html.dark .dash-membro-row:hover .dash-membro-name { color: #111827; }
 
+/* Menu de contexto (botão direito em capacitações e arquivos): o fundo era
+   `white` cravado, mas os itens usam var(--gray-800), que no escuro vira texto
+   CLARO → branco no branco. Damos ao menu um fundo escuro (o texto claro já lê)
+   e um hover sutil escuro no lugar do azul-claro. */
+html.dark .ctx-menu { background: #1f262f; border-color: var(--gray-300); }
+html.dark .ctx-menu .ctx-item:hover { background: #2b333f; color: var(--blue-300); }
+
+/* Tooltip do Gantt (passar o mouse nas barras): o fundo era var(--gray-900), que
+   no escuro vira quase-branco, com texto branco cravado → ilegível. Força fundo
+   escuro + texto claro. */
+html.dark .gantt-tooltip { background: #2b333f; color: #f0f6fc; }
+
 /* Caixas claras de tom de marca (--blue-50): a rampa azul é preservada de
    propósito, então elas ficavam BRANCAS demais no escuro. Amenizamos para um
    off-white acinzentado (menos brilho/contraste à noite), mantendo-as claras. */
 html.dark .accent-box,
 html.dark .cap-col-header,
 html.dark .atividades-col-header { background: #d4d9e2; }
+/* Atividades FIXAS/setoriais dos trainees: o card crava um gradiente claro
+   (var(--blue-50)→white) em INLINE style, que vence a regra de card escuro
+   acima. No escuro isso deixava o texto (var(--gray-900), que inverte p/ claro)
+   sobre fundo claro → ilegível. Sobrescrevemos o fundo p/ escuro (precisa de
+   !important por ser inline); a borda azul cravada segue marcando o card. */
+html.dark .atividade-card[data-mand] {
+  background: linear-gradient(135deg, #1b2330, #171c23) !important;
+}
 /* No "Nossos Valores" o corpo era cinza-claro sobre fundo claro (ilegível no
    escuro): texto passa para o tom escuro do tema. O título (--blue-700) já lê. */
 html.dark .accent-box-body { color: #1b2430; }

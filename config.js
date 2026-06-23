@@ -26,7 +26,7 @@ window.GOOGLE_CONFIG = {
   // (não é segredo — a chave da service account fica em env var no backend).
   // VAZIO = espelho desligado: o app salva normalmente no Supabase e só não
   // envia ao Sheets. Preencher após criar/compartilhar a planilha (PLANO 3.4).
-  pontoSheetId: '',
+  pontoSheetId: '16KOrGStvJCMBIZW6WmG_JWpp9Dd40Gkg4FCpufpVUxM',
 
   // Espelhar TAREFAS de projeto na agenda do RESPONSÁVEL (backend
   // /api/calendar-task, Modelo B). FALSE = desligado: o app salva a tarefa

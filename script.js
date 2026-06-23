@@ -76,6 +76,36 @@ const members = [
 // (Inclui inativos, como era no array antigo; quem renderiza decide se filtra.)
 function getTrainees() { return members.filter(m => m.role === 'Trainee'); }
 
+// --- Pódio dos trainees (top 3): medalha p/ 1º-3º + estrelas no 1º lugar. ---
+// No modo "ocultar pontos" (hideTraineePoints) some TUDO: medalhas, realce E o
+// próprio número de colocação (a lista vira só nomes, sem ranking visível).
+// Sem emojis: a medalha e as estrelas são SVG/CSS (ver política em ui-conventions).
+const RANK_MEDAL = ['gold', 'silver', 'bronze']; // índice 0,1,2 = 1º,2º,3º
+
+// Classe da linha: realça o pódio (1º-3º) só quando os pontos estão visíveis.
+function rankRowClass(i) {
+  return (!hideTraineePoints && i < 3) ? `rank-row podium podium-${i + 1}` : 'rank-row';
+}
+
+// Elemento à esquerda da linha: medalha (top 3) ou círculo numerado simples
+// (4º+). Com "ocultar pontos" ligado não mostra colocação nenhuma (string vazia).
+function rankPosHTML(i) {
+  if (hideTraineePoints) return '';
+  const medal = RANK_MEDAL[i];
+  if (!medal) return `<div class="rank-pos">${i + 1}</div>`;
+  return `<div class="rank-medal medal-${i + 1}">
+      ${i === 0 ? rankStarsHTML() : ''}
+      <span class="rank-ribbon"></span>
+      <span class="rank-disc">${i + 1}</span>
+    </div>`;
+}
+
+// Trio de estrelas douradas sobre a medalha do 1º lugar (a do meio é maior).
+function rankStarsHTML() {
+  const star = '<svg viewBox="0 0 24 24" class="rank-star" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.5 6.8L12 17.3 5.9 20.9l1.5-6.8L2.2 9.5l6.9-.6z"/></svg>';
+  return `<span class="rank-stars">${star}${star}${star}</span>`;
+}
+
 let pendingValidations = [
   { trainee:'Marina Santos', activity:'Concluir capacitação básica - HTML', points:100, padrinho:'Lucas Almeida',  sent:'23/05/2026' },
   { trainee:'Felipe Rocha',  activity:'Escrever resumo das RNNs',           points:60,  padrinho:'Júlia Ferreira', sent:'22/05/2026' },
@@ -718,10 +748,9 @@ function renderDashboard() {
 
   const rankEl = document.getElementById('dash-ranking');
   if (rankEl) {
-    const medals = ['gold','silver','bronze'];
     rankEl.innerHTML = getTrainees().sort((a,b)=>b.points-a.points).slice(0,4).map((t,i) => `
-      <div class="rank-row">
-        <div class="rank-pos ${medals[i]||''}">${i+1}</div>
+      <div class="${rankRowClass(i)}">
+        ${rankPosHTML(i)}
         <div class="rank-info"><div class="name">${gesc(t.name)}</div><div class="role">Trainee · ${gesc(getMemberSector(t.name))}</div></div>
         ${hideTraineePoints ? '' : `<div class="rank-points">${t.points} pts</div>`}
       </div>`).join('');
@@ -2090,9 +2119,8 @@ function submitEditProject() {
 function renderTrainees() {
   const rankEl=document.getElementById('trainee-ranking'), validEl=document.getElementById('trainee-validacoes'), activEl=document.getElementById('trainee-activities');
   if(rankEl){
-    const medals=['gold','silver','bronze'];
     rankEl.innerHTML=getTrainees().sort((a,b)=>b.points-a.points).map((t,i)=>`
-      <div class="rank-row"><div class="rank-pos ${medals[i]||''}">${i+1}</div>
+      <div class="${rankRowClass(i)}">${rankPosHTML(i)}
         <div class="rank-info"><div class="name">${gesc(t.name)}</div><div class="role">Padrinho: ${gesc(t.padrinho)}</div></div>
         ${hideTraineePoints ? '' : `<div class="rank-points">${t.points} pts</div>`}</div>`).join('');
   }
@@ -2143,6 +2171,64 @@ function toggleTraineePoints() {
   if (document.getElementById('trainee-ranking')) renderTrainees();
   if (document.getElementById('dash-ranking')) renderDashboard();
   showToast(hideTraineePoints ? 'Pontos ocultos.' : 'Pontos visíveis.');
+}
+
+// Pódio gráfico (modal) dos 3 primeiros trainees. Decisão do usuário: é
+// INDEPENDENTE do "ocultar pontos" — sempre mostra colocação + pontos, igual a
+// quando o botão não está acionado.
+function openTraineePodium() {
+  const top = getTrainees().sort((a, b) => b.points - a.points).slice(0, 3);
+  const el = document.getElementById('podio-content');
+  if (!el) return;
+  if (top.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:var(--gray-500);padding:24px;">Nenhum trainee no ranking.</div>';
+  } else {
+    const order = [1, 0, 2]; // 2º à esquerda, 1º ao centro, 3º à direita
+    el.innerHTML = `<div class="podio-arena">${podioSparklesHTML()}${podioBurstHTML()}<div class="podio-stage">${order.map(idx => {
+      const t = top[idx];
+      if (!t) return '';
+      const place = idx + 1;
+      return `<div class="podio-spot place-${place}">
+          ${place === 1 ? rankStarsHTML() : ''}
+          <div class="avatar podio-avatar">${initials(t.name)}</div>
+          <div class="podio-name">${gesc(t.name)}</div>
+          <div class="podio-pts">${t.points} pts</div>
+          <div class="podio-step">${place}º</div>
+        </div>`;
+    }).join('')}</div></div>`;
+  }
+  document.getElementById('modal-podio').classList.add('active');
+}
+
+// Campo de estrelinhas cintilantes nas LATERAIS do palco (decorativo, sem emoji).
+// Posições/tamanhos/atrasos aleatórios → cada abertura tem um cintilar diferente.
+function podioSparklesHTML() {
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  let out = '';
+  for (let k = 0; k < 12; k++) {
+    const left = k % 2 === 0;                       // alterna os lados
+    const x = left ? rnd(1, 16) : rnd(84, 99);      // % horizontal (margens do palco)
+    const y = rnd(4, 90);                           // % vertical
+    out += `<svg class="podio-spark" viewBox="0 0 24 24" aria-hidden="true" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${rnd(9, 18).toFixed(0)}px;height:${rnd(9, 18).toFixed(0)}px;animation-delay:${rnd(0, 2).toFixed(2)}s;animation-duration:${rnd(1.8, 3).toFixed(2)}s;"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.5 6.8L12 17.3 5.9 20.9l1.5-6.8L2.2 9.5l6.9-.6z"/></svg>`;
+  }
+  return `<div class="podio-sparkles" aria-hidden="true">${out}</div>`;
+}
+
+// Explosão de estrelas saindo do centro ao abrir o pódio (efeito surpresa, 1×).
+// Cada estrela carrega seu vetor (--tx/--ty) e rotação via CSS custom properties.
+function podioBurstHTML() {
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const cores = ['#fbbf24', '#f59e0b', '#fde68a', '#ffffff'];
+  let out = '';
+  const N = 30;
+  for (let k = 0; k < N; k++) {
+    const ang = (k / N) * Math.PI * 2 + rnd(-0.2, 0.2);
+    const dist = rnd(120, 300);
+    const tx = (Math.cos(ang) * dist).toFixed(0);
+    const ty = (Math.sin(ang) * dist).toFixed(0);
+    out += `<svg class="podio-burst-star" viewBox="0 0 24 24" aria-hidden="true" style="--tx:${tx}px;--ty:${ty}px;--rot:${rnd(-200, 200).toFixed(0)}deg;width:${rnd(10, 22).toFixed(0)}px;height:${rnd(10, 22).toFixed(0)}px;fill:${cores[k % cores.length]};animation-delay:${rnd(0, 0.1).toFixed(2)}s;"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.5 6.8L12 17.3 5.9 20.9l1.5-6.8L2.2 9.5l6.9-.6z"/></svg>`;
+  }
+  return `<div class="podio-burst" aria-hidden="true">${out}</div>`;
 }
 
 function submitActivity() {
@@ -2220,7 +2306,7 @@ function renderMandatoryActivityCard(a) {
     : 'Atividade fixa do setor';
   return `<div class="atividade-card" data-mand="${a.id}" onclick="mandatoryActivityClick(${a.id})"
        title="${hasLink ? 'Abrir PDF' : 'Sem arquivo'}${canEdit ? ` · botão direito: ${hasLink ? 'alterar' : 'definir'}` : ''}"
-       style="border-color:var(--blue-400);background:linear-gradient(135deg,var(--blue-50),white);">
+       style="border-color:var(--blue-400);background:var(--blue-50);">
     <div class="atividade-card-head">
       <div class="atividade-card-name">${gesc(a.name)}
         ${hasLink ? '<span style="font-size:11px;color:#16a34a;margin-left:6px;">PDF</span>'
